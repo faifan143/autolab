@@ -18,7 +18,11 @@ export class LabsService {
     private readonly usersService: UsersService,
   ) {}
 
-  async createLab(dto: CreateLabDto, requesterId: string, requesterRole: UserRole): Promise<Lab> {
+  async createLab(
+    dto: CreateLabDto,
+    requesterId: string,
+    requesterRole: UserRole,
+  ): Promise<LabDocument> {
     const teacherId = dto.teacherId ?? requesterId;
 
     if (requesterRole === UserRole.Teacher && teacherId !== requesterId) {
@@ -47,7 +51,7 @@ export class LabsService {
     dto: UpdateLabStudentsDto,
     requesterId: string,
     requesterRole: UserRole,
-  ): Promise<Lab> {
+  ): Promise<LabDocument> {
     const lab = await this.labModel.findById(labId);
     if (!lab) {
       throw new NotFoundException('Lab not found');
@@ -62,7 +66,7 @@ export class LabsService {
     return lab.save();
   }
 
-  async findById(labId: string): Promise<Lab | null> {
+  async findById(labId: string): Promise<LabDocument | null> {
     return this.labModel.findById(labId).exec();
   }
 

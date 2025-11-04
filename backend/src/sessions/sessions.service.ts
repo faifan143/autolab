@@ -6,7 +6,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { LabsService } from '../labs/labs.service';
-import { Lab } from '../labs/schemas/lab.schema';
+import { LabDocument } from '../labs/schemas/lab.schema';
 import { UserRole } from '../users/schemas/user.schema';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { Session, SessionDocument } from './schemas/session.schema';
@@ -51,7 +51,7 @@ export class SessionsService {
     return this.sessionModel.findById(sessionId).exec();
   }
 
-  private async getLabOrThrow(labId: string): Promise<Lab> {
+  private async getLabOrThrow(labId: string): Promise<LabDocument> {
     const lab = await this.labsService.findById(labId);
     if (!lab) {
       throw new NotFoundException('Lab not found');
@@ -59,7 +59,7 @@ export class SessionsService {
     return lab;
   }
 
-  private canMutateLab(lab: Lab, requesterId: string, role: UserRole): boolean {
+  private canMutateLab(lab: LabDocument, requesterId: string, role: UserRole): boolean {
     if (role === UserRole.Admin) {
       return true;
     }

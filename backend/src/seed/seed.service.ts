@@ -1,7 +1,9 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
-import { UserRole } from '../users/schemas/user.schema';
+import { LabsService } from '../labs/labs.service';
+import { SessionsService } from '../sessions/sessions.service';
+import { UserDocument, UserRole } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 
 interface SeedUserConfig {
@@ -43,6 +45,8 @@ export class SeedService implements OnApplicationBootstrap {
   constructor(
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
+    private readonly labsService: LabsService,
+    private readonly sessionsService: SessionsService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -54,14 +58,21 @@ export class SeedService implements OnApplicationBootstrap {
 
     this.logger.log('No admin detected. Running seed bootstrap...');
 
+    const seededUsers = new Map<UserRole, string>();
+
     for (const seedConfig of SEED_USERS) {
-      await this.seedUser(seedConfig);
+      const user = await this.seedUser(seedConfig);
+      if (user) {
+        seededUsers.set(user.role, user.id);
+      }
     }
+
+    await this.seedLabAndSession(seededUsers);
 
     this.logger.log('Seed bootstrap completed.');
   }
 
-  private async seedUser(config: SeedUserConfig): Promise<void> {
+  private async seedUser(config: SeedUserConfig): Promise<UserDocument | null> {
     const email = this.configService.get<string>(config.emailKey)?.toLowerCase();
     const password = this.configService.get<string>(config.passwordKey);
     const name =
@@ -71,17 +82,17 @@ export class SeedService implements OnApplicationBootstrap {
       this.logger.warn(
         `Skipping ${config.role} seed: missing ${config.emailKey} or ${config.passwordKey}.`,
       );
-      return;
+      return null;
     }
 
     const existingUser = await this.usersService.findByEmail(email);
     if (existingUser) {
       this.logger.debug(`Skipping ${config.role} seed: user with email ${email} already exists.`);
-      return;
+      return existingUser;
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    await this.usersService.create({
+    const user = await this.usersService.create({
       name,
       email,
       passwordHash,
@@ -89,5 +100,43 @@ export class SeedService implements OnApplicationBootstrap {
     });
 
     this.logger.log(`Seeded ${config.role} user (${email}).`);
+
+    return user;
+  }
+
+  private async seedLabAndSession(seededUsers: Map<UserRole, string>): Promise<void> {
+    const adminId = seededUsers.get(UserRole.Admin);
+    const teacherId = seededUsers.get(UserRole.Teacher);
+    const studentId = seededUsers.get(UserRole.Student);
+
+    if (!adminId || !teacherId) {
+      this.logger.warn('Skipping lab/session seeding: missing admin or teacher account.');
+      return;
+    }
+
+    const lab = await this.labsService.createLab(
+      {
+        name: 'Seed Automation Lab',
+        teacherId,
+        studentIds: studentId ? [studentId] : [],
+      },
+      adminId,
+      UserRole.Admin,
+    );
+
+    const startIso = new Date().toISOString();
+    const endIso = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    await this.sessionsService.createSession(
+      {
+        labId: lab.id,
+        startTime: startIso,
+        endTime: endIso,
+      },
+      adminId,
+      UserRole.Admin,
+    );
+
+    this.logger.log('Seeded default lab with initial session.');
   }
 }
