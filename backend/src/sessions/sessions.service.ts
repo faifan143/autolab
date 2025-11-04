@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { v4 as uuid } from 'uuid';
 import { LabsService } from '../labs/labs.service';
 import { Lab } from '../labs/schemas/lab.schema';
 import { UserRole } from '../users/schemas/user.schema';
@@ -40,8 +39,8 @@ export class SessionsService {
       labId: new Types.ObjectId(dto.labId),
       startTime: start,
       endTime: end,
-      qrStartToken: uuid(),
-      qrEndToken: uuid(),
+      qrStartToken: new Types.ObjectId().toHexString(),
+      qrEndToken: new Types.ObjectId().toHexString(),
       recordedVideoUrl: dto.recordedVideoUrl,
     });
 
