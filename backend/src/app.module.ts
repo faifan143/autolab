@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
+import { AttendanceModule } from './attendance/attendance.module';
 import { HealthController } from './health.controller';
 import { LabsModule } from './labs/labs.module';
 import { SeedModule } from './seed/seed.module';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     LabsModule,
     SessionsModule,
+    AttendanceModule,
   ],
   controllers: [HealthController],
   providers: [],

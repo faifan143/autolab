@@ -24,6 +24,12 @@ export class Session {
 
   @Prop({ required: false })
   recordedVideoUrl?: string;
+
+  @Prop({ required: false })
+  qrStartExpiresAt?: Date;
+
+  @Prop({ required: false })
+  qrEndExpiresAt?: Date;
 }
 
 export const SessionSchema = SchemaFactory.createForClass(Session);
