@@ -1,0 +1,573 @@
+AutoLab System Design Document (SDD)
+Project: AutoLab — Intelligent Laboratory Automation and Management PlatformAuthor: Faisal FansaVersion: 1.0Date: November 2025
+Table of Contents
+Introduction 1.1 Purpose 1.2 Scope 1.3 Objectives 1.4 Intended Audience 1.5 References
+System Overview 2.1 Context 2.2 Problem Statement 2.3 Solution Summary 2.4 System Goals
+System Architecture 3.1 High-Level Architecture 3.2 Context-Level Data Flow (DFD Level 0) 3.3 Detailed Data Flow (DFD Level 1) 3.4 Component Interaction 3.5 Hybrid Integration Model (REST + GraphQL + WebSocket)
+Component-Level Design 4.1 Authentication & Authorization Module 4.2 Attendance Module (QR-Based) 4.3 Grading & Evaluation Module 4.4 File Management & Versioning 4.5 Streaming Module (WebRTC + HLS) 4.6 Notification Service (Firebase) 4.7 Forum & Feedback 4.8 Admin Dashboard 4.9 Teacher Community Chat
+Database Design 5.1 ERD 5.2 Collections and Fields 5.3 Indexing & Performance
+API Design and Specifications 6.1 REST API 6.2 GraphQL API 6.3 WebSocket Events
+Security Architecture 7.1 Authentication Flow 7.2 Authorization & RBAC 7.3 Data Protection 7.4 Input Validation & Hardening
+DevOps & Infrastructure 8.1 Containerization & Reverse Proxy 8.2 CI/CD 8.3 Monitoring & Logging 8.4 Backup & Recovery
+Performance & Testing 9.1 Load & Stress Testing 9.2 API Benchmarking 9.3 Realtime Latency Targets
+Future Enhancements (AI/ML) 10.1 Attendance Anomaly Detection 10.2 Predictive Performance Analytics 10.3 LLM-Based Feedback Summarization 10.4 ERP / SIS Integration
+Non-Functional Requirements 11.1 Availability 11.2 Scalability 11.3 Maintainability 11.4 Usability
+Glossary & Appendix
+Features and User Scenarios
+1. Introduction
+1.1 Purpose
+This System Design Document (SDD) describes the architecture, components, data model, and integration patterns for AutoLab, a web and mobile platform that automates university/research laboratory operations (attendance, grading, streaming, collaboration). It is intended to serve as a blueprint for developers, reviewers, and academic evaluators.
+1.2 Scope
+AutoLab covers:
+Lab session creation and management
+Attendance via secure QR codes
+Grading and evaluation
+File distribution and versioning
+Live session streaming and archiving
+Notifications
+Teacher-to-teacher community chat
+Administrative dashboards and reporting
+1.3 Objectives
+Digitize and secure attendance
+Centralize lab-related data
+Enable real-time communication
+Support multi-client access (web + mobile)
+Ensure auditability and future extensibility
+1.4 Intended Audience
+Software engineers (backend, frontend, mobile)
+System architects
+University IT/CS departments
+Project supervisors / juries
+1.5 References
+NestJS Official Docs
+Next.js App Router Docs
+MongoDB Documentation
+Firebase Cloud Messaging
+WebRTC + HLS reference architecture
+2. System Overview
+2.1 Context
+Lab sessions often suffer from manual attendance fraud, scattered files, delayed grading, and lack of a single communication channel. Institutions also need an auditable, centralized platform.
+2.2 Problem Statement
+Current manual or semi-digital methods:
+Allow attendance spoofing
+Don’t unify grading, files, and streaming
+Don’t support real-time collaboration between teachers
+Don’t provide dashboards for admins
+2.3 Solution Summary
+AutoLab provides:
+Secure, session-based QR attendance
+Role-based web dashboard (Next.js) and mobile access (Flutter)
+Central backend (NestJS) exposing REST + GraphQL + WebSocket
+Persistent storage in MongoDB
+File/video storage in Backblaze B2 (free tier for prototype)
+Realtime notifications in Firebase (FCM free plan)
+2.4 System Goals
+Reliability and auditability
+Flexibility (multi-client)
+Real-time updates
+Secure access
+Extensible for AI/ML features
+3. System Architecture
+3.1 High-Level Architecture
+(Diagram description):
+Clients: Next.js frontend (web, admin), Flutter app (students/teachers).
+Backend: NestJS exposing - REST (CRUD, auth, uploads) - GraphQL (complex queries, dashboards) - WebSocket / Socket.io (real-time chat, attendance updates)
+Data layer: MongoDB (users, labs, sessions, attendance, grades, messages)
+Storage: Backblaze B2 (files, video archives)
+Notifications: Firebase Cloud Messaging (FCM)
+Streaming: WebRTC for live, HLS for replay
+Why hybrid?
+REST is simple for mobile and for basic operations.
+GraphQL is powerful for admin dashboards and complex nested views (lab → sessions → attendance → students).
+WebSocket is required for teacher chat and real-time attendance.
+3.2 Context-Level Data Flow (DFD Level 0)
+(Diagram description):
+External entities: Student, Teacher, Administrator
+All interact with AutoLab Core System
+AutoLab Core System interacts with:
+MongoDB (business data)
+Backblaze (files/videos)
+Firebase (notifications)
+Flow examples:
+Student → Scan QR → AutoLab → Attendance collection
+Teacher → Upload file → AutoLab → Backblaze
+Admin → View reports → AutoLab → MongoDB
+3.3 Detailed Data Flow (DFD Level 1)
+Processes:
+Authentication Process Input: credentials Output: JWT access + refresh tokens, role Data store: users
+Attendance Process Input: scanned QR token, sessionId, userId Validation: time window, session active, user enrolled Output: attendance record (present/late/absent) Data store: attendance Side effect: WebSocket event to teacher
+Grading Process Input: studentId, labId, grade payload Output: grade document Data store: grades Side effect: FCM notification
+Notification Process Input: internal system event Output: push notification via FCM Data store: notifications (optional for history)
+3.4 Component Interaction
+Main NestJS modules:
+AuthModule
+UsersModule
+LabsModule
+SessionsModule
+AttendanceModule
+GradingModule
+ChatModule (Socket.io)
+NotificationsModule
+FilesModule (Backblaze adapter)
+Each module:
+Exposes controllers (REST) and/or resolvers (GraphQL)
+Uses shared database providers (Mongoose models)
+May publish events to WebSocket gateway
+3.5 Hybrid Integration Model (REST + GraphQL + WebSocket)
+Clients → API Layer:
+Next.js: can consume all 3 (REST for forms, GraphQL for dashboards, WS for live updates)
+Flutter: mainly REST + WS (optionally GraphQL with a client)
+Backend separation:
+REST Controllers: /auth, /labs, /sessions, /grades, /files
+GraphQL: /graphql single endpoint (for nested queries)
+WebSocket: /ws (namespaced channels: /teachers, /notifications, /chat)
+This gives flexibility without overcomplicating the mobile client.
+4. Component-Level Design
+4.1 Authentication & Authorization Module
+Responsibilities:
+Login (email/password or institution credentials)
+Issue JWT access + refresh tokens
+Store refresh tokens (DB or Redis)
+Enforce RBAC: student, teacher, admin
+Register device’s FCM token (for mobile/web push)
+REST Example:
+POST /auth/login
+Request: { "email": "teacher@uni", "password": "******" }
+Response: { "accessToken": "...", "refreshToken": "...", "role": "teacher" }
+Guards: NestJS AuthGuard(JWT) + custom RolesGuard.
+4.2 Attendance Module (QR-Based)
+Responsibilities:
+Generate time-bound QR tokens per session (start / end)
+Validate scan: - token exists - session is active - user enrolled in lab - timestamp within allowed window
+Mark attendance: present, else late, else absent
+Write to attendance collection with audit data (who, when, from which device/ip)
+Notify teacher in real time via WebSocket
+Scenario (Student):
+Student opens Flutter app during lab
+Scans QR shown by teacher
+App sends POST /sessions/{id}/attendance with QR token
+Backend validates and stores
+Teacher’s web dashboard receives WS event: “Faisal present at 10:02”
+Edge cases:
+Re-scan: system should return existing attendance record
+Late scan: system marks late
+Wrong user (not in this lab): reject
+4.3 Grading & Evaluation Module
+Responsibilities:
+Define grading schema per lab (exam, report, project, participation)
+Insert/update grades
+Compute aggregates per student
+Expose grades to students
+Trigger notifications when grade is published
+REST Example:
+POST /grades
+Request: { "studentId": "...", "labId": "...", "category": "report", "score": 18 }
+Response: { "id": "...", "status": "saved" }
+GraphQL Example:
+query {
+  lab(id: "LAB123") {
+    name
+    students {
+      name
+      grades {
+        category
+        score
+      }
+    }
+  }
+}
+This is why GraphQL is useful here: nested, dashboard-oriented queries.
+4.4 File Management & Versioning
+Responsibilities:
+Upload lab materials, session slides, student submissions
+Store in Backblaze B2
+Keep metadata in MongoDB:
+fileName
+owner
+labId / sessionId
+version
+signed URL expiry
+Generate signed URLs for secure access (no public links)
+REST Example:
+POST /files/upload
+Returns: fileId + signedUrl
+4.5 Streaming Module (WebRTC + HLS)
+Responsibilities:
+Allow teacher to start a live session
+Use WebRTC for real-time streaming
+Record stream and segment to HLS for replay
+Save video metadata in DB and actual video in Backblaze
+Notify enrolled students that live session is available
+Flow:Teacher → start stream → signaling via backend → students connect → on end → backend stores HLS → attach to session record.
+4.6 Notification Service (Firebase)
+Responsibilities:
+Receive internal events:
+attendance below threshold
+new grade
+new session
+direct teacher message
+Send via FCM to user devices (Flutter, PWA)
+Store notification history (optional)
+Event format:
+{
+  "type": "GRADE_PUBLISHED",
+  "userId": "123",
+  "payload": { "labId": "LAB1", "grade": 19 }
+}
+4.7 Forum & Feedback
+Threaded discussions per lab
+Students can post questions
+Teachers can answer
+Anonymous feedback channel:
+student → feedback → stored → admin sees aggregates
+4.8 Admin Dashboard
+View all labs, sessions, teachers, students
+Filter by date, lab, teacher
+View attendance percentage
+View grade distribution
+Manage archived sessions (approve/reject)
+4.9 Teacher Community Chat
+Real-time chat channels for teachers
+Built on Socket.io
+Messages stored in MongoDB
+Admin moderation (mute/remove/log export)
+Used for coordination across labs/departments
+5. Database Design
+5.1 ERD (Textual)
+User(_id, name, email, passwordHash, role, fcmTokens[])
+Lab(_id, name, teacherId → User, students[] → User)
+Session(_id, labId → Lab, startTime, endTime, qrStartToken, qrEndToken, recordedVideoUrl)
+Attendance(_id, sessionId → Session, studentId → User, status, timestamp)
+Grade(_id, studentId → User, labId → Lab, category, score, createdAt)
+File(_id, ownerId, labId, sessionId, storageKey, version, createdAt)
+Message(_id, channelId, senderId, content, attachments[], createdAt)
+Notification(userId, type, payload, read)
+5.2 Indexing
+attendance: index on (sessionId, studentId)
+grades: index on (studentId, labId)
+sessions: index on labId
+messages: index on channelId, sort by createdAt
+6. API Design and Specifications
+6.1 REST API (Samples)
+POST /auth/loginRequest:
+{ "email": "teacher@example.com", "password": "secret" }
+Response:
+{
+  "accessToken": "jwt...",
+  "refreshToken": "jwt-refresh...",
+  "role": "teacher"
+}
+GET /labsReturns list of labs for logged-in user (student → enrolled labs, teacher → owned labs).
+POST /sessions/{id}/attendanceRequest:
+{ "qrToken": "abc123" }
+Response:
+{ "status": "present", "timestamp": "2025-11-04T10:02:00Z" }
+POST /gradesRequest:
+{
+  "studentId": "u123",
+  "labId": "l456",
+  "category": "report",
+  "score": 18
+}
+6.2 GraphQL API (Sample Schema)
+type User {
+  id: ID!
+  name: String!
+  role: String!
+  labs: [Lab]
+}
+type Lab {
+  id: ID!
+  name: String!
+  teacher: User
+  sessions: [Session]
+}
+type Session {
+  id: ID!
+  startTime: String!
+  endTime: String!
+  attendance: [Attendance]
+}
+type Attendance {
+  id: ID!
+  student: User
+  status: String!
+  timestamp: String!
+}
+type Query {
+  me: User
+  labs: [Lab]
+  lab(id: ID!): Lab
+  session(id: ID!): Session
+}
+type Mutation {
+  markAttendance(sessionId: ID!, userId: ID!): Attendance
+  addGrade(studentId: ID!, labId: ID!, score: Float!): Grade
+}
+GraphQL is especially good for dashboards (admins/teachers) where you want to fetch “lab + sessions + attendance + grades” in one request.
+6.3 WebSocket Events
+Namespace: /ws/teachers
+Events:
+attendanceUpdate
+{
+  "event": "attendanceUpdate",
+  "data": {
+    "sessionId": "S123",
+    "studentId": "U99",
+    "status": "present",
+    "timestamp": "..."
+  }
+}
+newChatMessage
+{
+  "event": "newChatMessage",
+  "data": {
+    "channelId": "teachers-physics",
+    "senderId": "U1",
+    "content": "Please upload week 4 material",
+    "createdAt": "..."
+  }
+}
+streamStarted
+{
+  "event": "streamStarted",
+  "data": {
+    "sessionId": "S555",
+    "labId": "L19",
+    "url": "https://.../hls.m3u8"
+  }
+}
+7. Security Architecture
+7.1 Authentication Flow
+Client logs in → receives access + refresh tokens
+Access token used in Authorization: Bearer <token>
+Refresh token endpoint to renew sessions
+Tokens signed with strong secret / RSA key
+7.2 Authorization & RBAC
+Roles: student, teacher, admin
+Route-level guards in NestJS
+Example:
+Only teacher can create session for lab
+Only admin can approve archive
+7.3 Data Protection
+TLS (HTTPS) for all traffic
+Signed URLs for file access (Backblaze)
+Sensitive fields hashed (bcrypt)
+7.4 Input Validation & Hardening
+DTO validation in NestJS
+Rate limiting on auth endpoints
+CORS configured for known frontends
+Helmet for security headers
+8. DevOps & Infrastructure
+*skipped*
+9. Performance & Testing
+*skipped*
+10. Future Enhancements (AI/ML)
+10.1 Attendance Anomaly Detection
+Train a model on attendance patterns (time, device, location)
+Flag suspicious attendance (scans from same device for multiple students)
+10.2 Predictive Performance Analytics
+Use attendance + grade history to predict at-risk students
+Show to teacher/admin on dashboard
+10.3 LLM-Based Feedback Summarization
+Run NLP on anonymous feedback to cluster complaints/praise
+Present to admin as “Top 5 themes this month”
+10.4 ERP / SIS Integration
+Sync users, courses, labs with university systems
+11. Non-Functional Requirements
+11.1 Availability
+Target: 99.5%
+Critical features (attendance, auth) must degrade gracefully
+11.2 Scalability
+Horizontal scaling of NestJS with Socket.io + Redis adapter
+MongoDB sharding if data grows (attendance is write-heavy)
+11.3 Maintainability
+Modular NestJS structure (each feature = module)
+Shared DTOs and interfaces
+Linting + formatting
+11.4 Usability
+RTL/LTR support if needed
+Responsive UI (Next.js + Tailwind)
+12. Glossary & Appendix
+DFD: Data Flow Diagram
+HLS: HTTP Live Streaming
+FCM: Firebase Cloud Messaging
+RBAC: Role-Based Access Control
+WS: WebSocket
+REST: Representational State Transfer
+13. Features and User Scenarios
+This section explains how end users actually interact with AutoLab using the features defined in the previous section. It complements the technical module descriptions by mapping them to real workflows.
+13.1 User Roles Recap
+Student: consumes sessions, marks attendance, views grades, downloads files, posts in forum.
+Teacher: creates sessions, displays QR, evaluates students, streams labs, chats with other teachers.
+Administrator: oversees all labs, audits attendance, manages users, and reviews archived content.
+13.2 Feature: Secure Attendance via QR
+Objective: prevent fake / proxy attendance and link presence to the actual session time.
+Actors: Teacher, Student, System.
+Preconditions:
+Session is created by the teacher.
+Session is in “active” or “about to start” state.
+Student is enrolled in the lab.
+Scenario (Happy Path):
+Teacher starts the session from the web dashboard.
+System generates a session-specific, time-bound QR code (e.g. valid 2–5 minutes).
+Teacher shows the QR on the lab screen.
+Student opens the Flutter app → “Current Sessions” → “Scan QR”.
+App sends sessionId + qrToken + studentId to POST /sessions/{id}/attendance.
+Backend (Attendance Module) verifies:
+QR token belongs to this session.
+Session time is valid.
+Student belongs to this lab.
+If valid → system creates an attendance record with timestamp and status = present.
+A WebSocket event attendanceUpdate is emitted to the teacher’s dashboard so the teacher sees the student appear in real time.
+Alternative: Late Scan
+If the student scans after the allowed window, system sets status = late but still saves it.
+Teacher can later filter by status.
+Error Cases:
+QR expired → return error: “Session QR expired, ask your instructor.”
+Not enrolled → return error: “You are not registered in this lab.”
+Duplicate scan → return existing attendance entry (idempotent).
+13.3 Feature: Grading and Publishing Results
+Objective: let teachers enter grades per lab, per activity, and notify students.
+Scenario (Teacher adds grade):
+Teacher opens the session or lab page → “Grades”.
+Teacher selects student + category (e.g. “Report 2”) → enters score.
+Frontend calls POST /grades.
+Backend validates the teacher is owner of this lab.
+Grade is stored in grades collection.
+Notification Service creates an event → sends FCM to the student “New grade published for Lab X”.
+Student opens app → sees updated grade list.
+Scenario (Student views grades):
+Student calls GET /grades?labId=... (or GraphQL query).
+System returns all grades, categories, and totals.
+Student can view history (because we keep createdAt).
+13.4 Feature: File Distribution & Versioning
+Scenario (Teacher uploads files):
+Teacher opens “Session Files”.
+Chooses PDF / code / slides → uploads.
+Frontend sends file to backend → backend uploads to Backblaze B2 (free tier).
+Backend stores metadata in files collection:
+fileName
+labId / sessionId
+ownerId
+storageKey
+version = 1
+Students enrolled in this lab can now see and download the file through a signed URL (time-limited link).
+Scenario (Teacher updates a file):
+Teacher uploads new version → backend stores as version 2.
+Students see the latest version but admin can still see older versions (for auditing).
+13.5 Feature: Live Streaming and Session Archiving
+Objective: enable remote/absent students to follow the lab and allow replay later.
+Scenario (Teacher starts live):
+Teacher clicks “Start Live” on the session.
+Frontend initiates WebRTC signaling with the NestJS backend.
+Students subscribed to this session receive a WS/FCM notification: “Live session started”.
+Students open the live viewer (HLS/WebRTC player) and start watching.
+When the stream ends, the recording is converted to HLS segments and stored in Backblaze.
+The session document is updated: recordedVideoUrl = <hls-link>.
+Scenario (Student watches archive):
+Student opens past sessions.
+Chooses session with recorded video.
+Frontend plays the HLS through a signed URL.
+13.6 Feature: Forum & Feedback (Per Lab)
+Scenario (Student asks question):
+Student opens the forum for Lab X.
+Creates a thread: “I didn’t understand experiment 3 wiring.”
+Thread is saved with labId, authorId, createdAt.
+Teacher receives notification (in-app / WS) and can reply.
+All other students in Lab X can see the discussion.
+Scenario (Anonymous feedback):
+Student opens “Give anonymous feedback”.
+Submits a concern (e.g. “The pace is too fast”).
+System stores feedback without storing studentId or by separating identity from content.
+Admin/teacher sees aggregated feedback but not who sent it.
+13.7 Feature: Teacher Community Chat
+Objective: provide a private, real-time channel for lab teachers to coordinate.
+Scenario (Teacher posts in department channel):
+Teacher joins channel teachers-physics.
+Sends message “Tomorrow’s lab will be merged.”
+ChatModule (Socket.io) broadcasts the message to all connected teachers in that channel.
+Message is persisted in messages collection.
+Admin can later export or moderate messages.
+Scenario (Private 1:1):
+Teacher selects another teacher → “Message”.
+System creates a private channel (or uses DM schema).
+Messages are exchanged over WS and saved.
+13.8 Feature: Admin Dashboard & Auditing
+Scenario (Admin audits attendance):
+Admin opens “Attendance Overview”.
+Filters by date range, by lab, or by teacher.
+System aggregates data from attendance:
+total present
+total late
+total absent
+Admin can click a session to see who attended and at what exact time (audit trail).
+Because QR is time-bound, admin can detect abnormal patterns.
+Scenario (Admin manages archived sessions):
+Teacher requests archiving for a finished course.
+Admin sees list of “Archive requests”.
+Admin approves → system locks the session data (read-only) but still keeps it in MongoDB + Backblaze.
+This preserves academic records.
+13.9 Feature: Cost-Conscious Cloud Usage
+Because this is a prototype / academic / early-stage system, external services must run on free plans where possible.
+Behavior:
+Backblaze B2: used only for actual necessary files and short videos; larger/longer recordings can be limited or periodically pruned to stay inside the free quota.
+Firebase FCM: used only for essential notifications (attendance, grades, live started) to stay within free daily limits.
+If the system detects exceeding free tier limits, it can:
+stop auto-recording live sessions,
+or notify admin to upgrade storage,
+or switch to “metadata-only” mode for files.
+13.10 End-to-End Scenario (Put It All Together)
+Use Case: “Weekly Lab Session”
+Before class:
+Teacher creates Session #5 for “Digital Systems Lab”.
+Uploads the PDF instructions.
+Enables live streaming (optional).
+In class:
+Teacher starts the session → QR is shown.
+25 students scan via Flutter → attendance records are created.
+Teacher sees real-time presence via WebSocket.
+After class:
+Teacher grades the submitted reports → students get FCM “Grade published”.
+A student who missed class watches the archived video from Backblaze.
+Students ask follow-up questions in the forum.
+In parallel (staff):
+Teachers discuss lab scheduling in Teacher Community Chat.
+Admin later audits Session #5 and confirms attendance and grades.
+That’s the “movie version” of your system — exactly what reviewers like to see, because it proves your modules aren’t isolated; they form a working flow.
+# =========================
+# AutoLab .env (backend)
+# =========================
+# ----- App -----
+PORT=3000
+NODE_ENV=development
+# ----- Database -----
+MONGODB_URI=mongodb://localhost:27017/autolab
+# ----- Auth / JWT -----
+JWT_SECRET=autolab_jwt_secret_9f3c8e0c
+JWT_EXPIRES_IN=3600s
+JWT_REFRESH_SECRET=autolab_refresh_secret_f4b27a1a
+JWT_REFRESH_EXPIRES_IN=7d
+# =========================================
+# Firebase (client-side project settings)
+# taken from your firebaseConfig
+# =========================================
+FIREBASE_API_KEY=AIzaSyCPYEtqSQpQjDNCPweG1dnq5q1Uac22Ac8
+FIREBASE_AUTH_DOMAIN=autolab-b79a5.firebaseapp.com
+FIREBASE_PROJECT_ID=autolab-b79a5
+FIREBASE_STORAGE_BUCKET=autolab-b79a5.firebasestorage.app
+FIREBASE_MESSAGING_SENDER_ID=847082957513
+FIREBASE_APP_ID=1:847082957513:web:471259e75f8ff4abe8fb18
+# =========================================
+# Firebase Admin (server-to-server)
+# =========================================
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@autolab-b79a5.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDGU/Ixq1OclfZT\nor2B5P3UkavlKBsZYdKtPfYMXwhjuv5zlC6/SBoXj24731gRA09n+i7D+C0TuzKr\nyoV0NJjOOiJBPMzSyrkTKn5epCEiKq56GxzUUeHQqRvfkoe95PBOCZ/Ehl+4JT6X\npgaqUDV+WgOhQz3CgIqAhM0OhNDGeqh7gMTBp3PvIl6+ZdJsX3JN6GhypEAZouwN\nx13Y9jP3DfyGmj+wMYc5kQP2vDYB+N4ZDKWAs8EUKhr44i/6a/d5fCtqAknUzdxQ\nFMsNwLm4T/U+5Geax6I/C4Vkl0ipBm3e9vQbmPSx3drdCJzypC2Tw+KzI4qi21KN\nN93Mkm/FAgMBAAECggEAEuafq4uiI4doKxbUnCs8ZJSAbw2oLX5U42VHDG1HIagJ\nxW6PGPQwZmPpM8QIgtCPsf9WEx+U/i8mOFiL6OP1VxwTtSdr9r/SrQis8+yM6tJp\n/+GTGQn3rRjcuu0eSiLmIu3IX+SVfTlxcmbkdjlAK9s8wtLjcSSqbm6Zk0NlmTCe\n1sBBTLrvC3FQ2mOXUqAeGdYVJt1Le+x4cwN6oSM3cL9ZISMUHKkm0EFa+t3QfM9g\n/w8NRiElgd1rlEEjCinffQeCx+gfQkMW2HQYo+M5QBExg9qi0mZvJ07MrbebGClw\nIRKPcTrpSi+YhEAKQim1qOeYva0tNFata9AMkykhSQKBgQDujZjQdT4ALytPujYA\nRcvrtWfDpnAm2LmHDAtOBtmtUieLB96IkfwwQVFG4mWl8JU41CxymZfe6/EMEbZQ\n5ttN92PSVSOdQlTUd/+qMYwW4NQfs4qmCa2CIQP66Fzm13nNwIQiOZU3OvwP5DdW\nW5hn6IPJIHIwtOwXiUKUjsiVSQKBgQDU1TefVMtsIZVaGQVrptHMLK0oNPsfGHqh\nSlO7R0q0sguid0Zy9KLHRSKjR1sg7ziYg52xT+sND4p5ANIoSfhF8+Ch+1k91oI1\nH6j1IHS8SIU07nFeQHALSRlxZmaN49ldAth9Wp3/RDSHYQbd9c0OxsDD3c5yguOm\nq6anzVHSnQKBgQCXB6a8M74xN6vgKjCOM6JLdOphADr5HTU4vvNZTxT5mo3WhADr\nziEwG+ptSmC4knynIg2R8JQqWo6d6YjX55Do57uXKrgFlD1I10BSbFQZF/a0q2MY\nhAAJ5wUyEXLf44QGM+B0GqjR8tIq7X3resoe3yKwb45cL+9ZZ1lz3II5oQKBgHdS\nClsTaPB4a4kVmgpefiRfr7xo55jpWmbuir7mGyXu48Lz59Uu/cuGIQM1UAvI0gv/\nTftIeNjbq6BnK2tW/RAKyBdIGSIoDtvFoi27QncEmVmxjHFw4uAQ3WjMJhbKdORG\nYiT1Frsz+9ciOH1b/tiX6R5mTgW5B/Q7K7XL0GGpAoGBALWyV1oY4G9lbt6Nw956\nqkGYYg5N/xvVXgRaj1uj02V7IEbwbloIfjOiE5gJ4q1XSC3Yi0YvWplr8fZmmb2g\n6h8utPZdgnIfkqLewYRReb0T182RI5MKeeskNSoLPBfPKS2a/lYSKFGYVZEBhP3O\nqih/24ngnZxrosT0RNA4aE2m\n-----END PRIVATE KEY-----\n"
+# =========================================
+# Backblaze B2 (S3-compatible)
+# from your Backblaze panel
+# =========================================
+B2_ENDPOINT=https://s3.eu-central-003.backblazeb2.com
+B2_BUCKET=autolab-fyp2026
+B2_KEY_ID=00386b92d3f97310000000001
+B2_APPLICATION_KEY=K003APY2K5OZz60BC2NjYN3nNpIzLfA
