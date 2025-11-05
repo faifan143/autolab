@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { FilesModule } from './files/files.module';
 import { GradingModule } from './grading/grading.module';
 import { HealthController } from './health.controller';
 import { LabsModule } from './labs/labs.module';
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     AttendanceModule,
     GradingModule,
     NotificationsModule,
+    FilesModule,
   ],
   controllers: [HealthController],
   providers: [],
