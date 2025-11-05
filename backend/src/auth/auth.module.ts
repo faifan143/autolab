@@ -6,6 +6,7 @@ import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { WsJwtGuard } from './guards/ws-jwt.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { resolveTokenTtl } from './utils/token-ttl.util';
@@ -27,7 +28,7 @@ import { resolveTokenTtl } from './utils/token-ttl.util';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RolesGuard, JwtAuthGuard],
-  exports: [AuthService, RolesGuard, JwtAuthGuard],
+  providers: [AuthService, JwtStrategy, RolesGuard, JwtAuthGuard, WsJwtGuard],
+  exports: [AuthService, RolesGuard, JwtAuthGuard, WsJwtGuard],
 })
 export class AuthModule {}
