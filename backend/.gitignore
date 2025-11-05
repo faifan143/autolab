@@ -33,3 +33,4 @@ tmp/
 .env.test
 node_modules/
 test/
+frontend/
