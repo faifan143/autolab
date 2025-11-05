@@ -6,11 +6,10 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { LabsService } from '../labs/labs.service';
-import { NotificationsService } from '../notifications/notifications.service';
+import { FirebaseNotificationsService } from '../integrations/firebase/firebase-notifications.service';
 import { UserRole } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { CreateGradeDto } from './dto/create-grade.dto';
-import { GradePublishedEvent } from '../notifications/events/grade-published.event';
 import { Grade, GradeDocument } from './schemas/grade.schema';
 
 @Injectable()
@@ -19,7 +18,7 @@ export class GradingService {
     @InjectModel(Grade.name) private readonly gradeModel: Model<GradeDocument>,
     private readonly labsService: LabsService,
     private readonly usersService: UsersService,
-    private readonly notificationsService: NotificationsService,
+    private readonly notificationsService: FirebaseNotificationsService,
   ) {}
 
   async createGrade(
@@ -76,7 +75,7 @@ export class GradingService {
       },
     );
 
-    await this.notifyGradePublished(grade);
+    await this.notifyGradePublished(grade, student.fcmTokens ?? [], lab.name);
 
     return grade;
   }
@@ -135,24 +134,35 @@ export class GradingService {
       .exec();
   }
 
-  private async notifyGradePublished(grade: GradeDocument): Promise<void> {
+  private async notifyGradePublished(
+    grade: GradeDocument,
+    tokens: string[],
+    labName?: string,
+  ): Promise<void> {
+    if (!tokens.length) {
+      return;
+    }
+
     const updatedAt =
       (grade as GradeDocument & { updatedAt?: Date }).updatedAt ?? new Date();
 
-    const event: GradePublishedEvent = {
-      gradeId: grade.id,
-      studentId: grade.studentId.toString(),
-      labId: grade.labId.toString(),
-      category: grade.category,
-      score: grade.score,
-      maxScore: grade.maxScore,
-      gradedAt: new Date(updatedAt).toISOString(),
-    };
-
-    await this.notificationsService.sendNotification({
-      type: 'GRADE_PUBLISHED',
-      userId: event.studentId,
-      data: event,
+    await this.notificationsService.sendMulticast({
+      tokens,
+      notification: {
+        title: labName ? `${labName} – grade updated` : 'New grade published',
+        body: `${grade.category}: ${grade.score}${
+          grade.maxScore ? ` / ${grade.maxScore}` : ''
+        }`,
+      },
+      data: {
+        type: 'GRADE_PUBLISHED',
+        gradeId: grade.id,
+        labId: grade.labId.toString(),
+        category: grade.category,
+        score: String(grade.score),
+        maxScore: grade.maxScore ? String(grade.maxScore) : '',
+        gradedAt: new Date(updatedAt).toISOString(),
+      },
     });
   }
 }

@@ -7,7 +7,7 @@ import { FilesModule } from './files/files.module';
 import { GradingModule } from './grading/grading.module';
 import { HealthController } from './health.controller';
 import { LabsModule } from './labs/labs.module';
-import { NotificationsModule } from './notifications/notifications.module';
+import { FirebaseNotificationsModule } from './integrations/firebase/firebase-notifications.module';
 import { SeedModule } from './seed/seed.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { UsersModule } from './users/users.module';
@@ -30,10 +30,22 @@ import { UsersModule } from './users/users.module';
     SessionsModule,
     AttendanceModule,
     GradingModule,
-    NotificationsModule,
+    FirebaseNotificationsModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        credential: {
+          projectId: configService.get<string>('FIREBASE_PROJECT_ID'),
+          clientEmail: configService.getOrThrow<string>('FIREBASE_CLIENT_EMAIL'),
+          privateKey: configService.getOrThrow<string>('FIREBASE_PRIVATE_KEY'),
+        },
+        defaultTtlSeconds: configService.get<number>('FIREBASE_DEFAULT_TTL') ?? 3600,
+      }),
+      inject: [ConfigService],
+    }),
     FilesModule,
   ],
   controllers: [HealthController],
   providers: [],
 })
 export class AppModule {}
+

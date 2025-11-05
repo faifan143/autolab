@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from '../auth/auth.module';
 import { LabsModule } from '../labs/labs.module';
-import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { GradingController } from './grading.controller';
 import { GradingService } from './grading.service';
@@ -14,7 +13,6 @@ import { Grade, GradeSchema } from './schemas/grade.schema';
     LabsModule,
     UsersModule,
     AuthModule,
-    NotificationsModule,
   ],
   controllers: [GradingController],
   providers: [GradingService],

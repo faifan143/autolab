@@ -15,14 +15,14 @@ import { UserRole } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { StoredFile, FileDocument } from './schemas/file.schema';
-import { StorageService } from './storage/storage.service';
+import { BackblazeService } from '../integrations/backblaze/backblaze.service';
 
 @Injectable()
 export class FilesService {
   constructor(
     @InjectModel(StoredFile.name)
     private readonly fileModel: Model<FileDocument>,
-    private readonly storageService: StorageService,
+    private readonly backblazeService: BackblazeService,
     private readonly labsService: LabsService,
     private readonly sessionsService: SessionsService,
     private readonly usersService: UsersService,
@@ -84,7 +84,7 @@ export class FilesService {
       sessionId,
     });
 
-    await this.storageService.upload({
+    await this.backblazeService.uploadObject({
       key: storageKey,
       body: file.buffer,
       contentType: file.mimetype,
@@ -103,7 +103,7 @@ export class FilesService {
       version,
     });
 
-    const downloadUrl = await this.storageService.getSignedUrl(storageKey);
+    const downloadUrl = await this.backblazeService.getSignedUrl(storageKey);
 
     return {
       id: storedFile.id,
@@ -133,7 +133,7 @@ export class FilesService {
       throw new ForbiddenException('Unauthorized to access this file');
     }
 
-    const url = await this.storageService.getSignedUrl(file.storageKey);
+    const url = await this.backblazeService.getSignedUrl(file.storageKey);
     return { url };
   }
 
