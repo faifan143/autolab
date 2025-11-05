@@ -3,8 +3,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { GradingModule } from './grading/grading.module';
 import { HealthController } from './health.controller';
 import { LabsModule } from './labs/labs.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { SeedModule } from './seed/seed.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { UsersModule } from './users/users.module';
@@ -26,6 +28,8 @@ import { UsersModule } from './users/users.module';
     LabsModule,
     SessionsModule,
     AttendanceModule,
+    GradingModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [],
