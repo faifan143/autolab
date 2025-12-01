@@ -6,6 +6,8 @@ import 'core/config/app_config.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/api_service.dart';
 import 'core/providers/auth_provider.dart';
+import 'core/providers/chat_provider.dart';
+import 'core/providers/files_provider.dart';
 import 'core/routes/app_routes.dart';
 import 'core/theme/app_theme.dart';
 import 'core/controllers/theme_controller.dart';
@@ -37,6 +39,8 @@ class MyApp extends StatelessWidget {
         providers: [
           ChangeNotifierProvider(create: (_) => AuthProvider()),
           ChangeNotifierProvider(create: (_) => LabsProvider()),
+          ChangeNotifierProvider(create: (_) => FilesProvider()),
+          ChangeNotifierProvider(create: (_) => ChatProvider()),
         ],
         child: GetMaterialApp(
           navigatorKey: AppRoutes.appNavigatorKey,

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/session_model.dart';
 import '../../../core/providers/sessions_provider.dart';
+import '../../../core/routes/app_routes.dart';
 
 class SessionsListScreen extends StatelessWidget {
   final String? labId;
@@ -209,6 +210,19 @@ class _SessionCard extends StatelessWidget {
                       label: 'recorded'.tr,
                       color: color.secondary,
                     ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pushNamed(
+                        AppRoutes.sessionStreaming,
+                        arguments: {
+                          'sessionId': session.id,
+                          'isStreaming': session.isStreaming,
+                        },
+                      );
+                    },
+                    icon: const Icon(Icons.play_circle_outline),
+                    label: Text('streaming.start'.tr),
+                  ),
                 ],
               ),
             ],

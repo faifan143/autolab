@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class AttendanceQrScreen extends StatelessWidget {
   final String sessionId;
@@ -9,10 +10,12 @@ class AttendanceQrScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Attendance QR Code'),
+        title: Text('attendance'.tr),
       ),
       body: Center(
-        child: Text('QR Code for session: $sessionId'),
+        child: Text(
+          'QR Code for session: $sessionId',
+        ),
       ),
     );
   }

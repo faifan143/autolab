@@ -7,6 +7,7 @@ import '../../features/labs/screens/labs_list_screen.dart';
 import '../../features/labs/screens/lab_detail_screen.dart';
 import '../../features/sessions/screens/sessions_list_screen.dart';
 import '../../features/sessions/screens/session_detail_screen.dart';
+import '../../features/sessions/screens/session_streaming_screen.dart';
 import '../../features/attendance/screens/attendance_screen.dart';
 import '../../features/grading/screens/grades_list_screen.dart';
 import '../../features/files/screens/files_list_screen.dart';
@@ -27,6 +28,7 @@ class AppRoutes {
   static const String files = '/files';
   static const String chat = '/chat';
   static const String settings = '/settings';
+  static const String sessionStreaming = '/sessions/streaming';
 
   /// Global navigator key used for app-wide navigation (e.g. 401 handling).
   static final GlobalKey<NavigatorState> appNavigatorKey =
@@ -49,6 +51,14 @@ class AppRoutes {
     sessionDetail: (context) {
       final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
       return SessionDetailScreen(sessionId: args['sessionId']);
+    },
+    sessionStreaming: (context) {
+      final args =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      return SessionStreamingScreen(
+        sessionId: args['sessionId'] as String,
+        initialStreaming: (args['isStreaming'] as bool?) ?? false,
+      );
     },
     attendance: (context) => const AttendanceScreen(),
     grades: (context) {

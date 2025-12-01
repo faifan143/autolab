@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class LabDetailScreen extends StatelessWidget {
   final String labId;
@@ -9,10 +10,12 @@ class LabDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lab Details'),
+        title: Text('labs.detail.title'.tr),
       ),
       body: Center(
-        child: Text('Lab detail for ID: $labId'),
+        child: Text(
+          'labs.detail.placeholder'.trParams({'id': labId}),
+        ),
       ),
     );
   }

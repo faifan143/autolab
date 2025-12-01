@@ -64,6 +64,31 @@ class AppTranslations extends Translations {
           'comment': 'Comment',
           'required': 'Required',
           'no.students.in.lab': 'No students in this lab',
+          // Files
+          'files.title': 'Files',
+          'files.empty': 'No files found',
+          'files.error': 'Failed to load files',
+          'files.download': 'Open file',
+          'files.lab': 'Lab',
+          'files.session': 'Session',
+          'files.owner': 'Owner',
+          'files.size': 'Size',
+          'files.createdAt': 'Uploaded at',
+          'files.details.title': 'File details',
+          // Chat
+          'chat.title': 'Chat',
+          'chat.empty': 'No messages yet',
+          'chat.error': 'Failed to load messages',
+          'chat.input.hint': 'Type a message...',
+          'chat.send': 'Send',
+          // Streaming
+          'streaming.title': 'Live streaming',
+          'streaming.start': 'Start live stream',
+          'streaming.stop': 'Stop stream',
+          'streaming.description':
+              'Start a live stream for this session. Students will be able to watch in real time.',
+          'streaming.preview.live': 'Live preview will appear here.',
+          'streaming.preview.idle': 'Not streaming yet.',
           // Auth - login
           'auth.login.title': 'Welcome Back',
           'auth.login.subtitle': 'Sign in to continue',
@@ -97,6 +122,9 @@ class AppTranslations extends Translations {
           // Auth - session
           'auth.sessionExpired':
               'Your session has expired, please log in again.',
+          // Labs (detail placeholders)
+          'labs.detail.title': 'Lab Details',
+          'labs.detail.placeholder': 'Lab detail for ID: @id',
         },
         'ar': {
           'app.title': 'أوتولاب للمدرس',
@@ -159,6 +187,31 @@ class AppTranslations extends Translations {
           'comment': 'ملاحظة',
           'required': 'مطلوب',
           'no.students.in.lab': 'لا يوجد طلاب في هذا المختبر',
+          // Files
+          'files.title': 'الملفات',
+          'files.empty': 'لا توجد ملفات',
+          'files.error': 'فشل تحميل الملفات',
+          'files.download': 'فتح الملف',
+          'files.lab': 'المختبر',
+          'files.session': 'الجلسة',
+          'files.owner': 'المالك',
+          'files.size': 'الحجم',
+          'files.createdAt': 'تاريخ الرفع',
+          'files.details.title': 'تفاصيل الملف',
+          // Chat
+          'chat.title': 'الدردشة',
+          'chat.empty': 'لا توجد رسائل بعد',
+          'chat.error': 'فشل تحميل الرسائل',
+          'chat.input.hint': 'اكتب رسالة...',
+          'chat.send': 'إرسال',
+          // Streaming
+          'streaming.title': 'بث مباشر',
+          'streaming.start': 'بدء البث المباشر',
+          'streaming.stop': 'إيقاف البث',
+          'streaming.description':
+              'ابدأ بثاً مباشراً لهذه الجلسة ليتمكن الطلاب من المتابعة في الوقت الفعلي.',
+          'streaming.preview.live': 'ستظهر معاينة البث هنا.',
+          'streaming.preview.idle': 'لا يوجد بث حالياً.',
           // Auth - login
           'auth.login.title': 'مرحباً بعودتك',
           'auth.login.subtitle': 'سجّل الدخول للمتابعة',
@@ -194,6 +247,9 @@ class AppTranslations extends Translations {
           // Auth - session
           'auth.sessionExpired':
               'انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى.',
+          // Labs (detail placeholders)
+          'labs.detail.title': 'تفاصيل المختبر',
+          'labs.detail.placeholder': 'تفاصيل المختبر برقم: @id',
         },
       };
 }

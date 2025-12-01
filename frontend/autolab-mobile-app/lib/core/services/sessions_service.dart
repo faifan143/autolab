@@ -23,6 +23,14 @@ class SessionsService {
       },
     );
   }
+
+  Future<Response> startStream(String sessionId) {
+    return _api.post(ApiConstants.startStream(sessionId));
+  }
+
+  Future<Response> stopStream(String sessionId) {
+    return _api.post(ApiConstants.stopStream(sessionId));
+  }
 }
 
 
