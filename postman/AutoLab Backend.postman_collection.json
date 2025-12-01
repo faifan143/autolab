@@ -1,0 +1,586 @@
+{
+  "info": {
+    "_postman_id": "927bcbae-3bb3-4d20-a7a7-6c4c88367519",
+    "name": "AutoLab Backend",
+    "description": "Postman collection covering core AutoLab backend endpoints.\n\nVariables expected:\n- `baseUrl`: API root, e.g. `http://localhost:3000`\n- `teacherEmail` / `teacherPassword`\n- `studentEmail` / `studentPassword`\n- `adminEmail` / `adminPassword`\n- `labId`, `sessionId`, `studentId` etc. can be populated from responses/tests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "autolab-admin"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login (Generic)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{teacherEmail}}\",\n  \"password\": \"{{teacherPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('Login succeeded', () => pm.response.code === 200 && json.accessToken);",
+                  "pm.environment.set('accessToken', json.accessToken);",
+                  "pm.environment.set('refreshToken', json.refreshToken);",
+                  "pm.environment.set('currentUserId', json.user?.id || '');",
+                  "pm.environment.set('currentUserRole', json.user?.role || '');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token (Manual)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "If a dedicated refresh endpoint exists, update this request accordingly."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Labs & Sessions",
+      "item": [
+        {
+          "name": "Create Lab",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Electronics Lab\",\n  \"teacherId\": \"{{currentUserId}}\",\n  \"studentIds\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/labs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "labs"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('Lab created', () => pm.response.code === 201 || pm.response.code === 200);",
+                  "pm.environment.set('labId', json._id || json.id || '');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Assign Students to Lab",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentIds\": [\n    \"{{studentId}}\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/labs/{{labId}}/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "labs",
+                "{{labId}}",
+                "students"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"labId\": \"{{labId}}\",\n  \"startTime\": \"{{sessionStartIso}}\",\n  \"endTime\": \"{{sessionEndIso}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.environment.set('sessionId', json._id || json.id || '');",
+                  "pm.environment.set('qrStartToken', json.qrStartToken || '');",
+                  "pm.environment.set('qrEndToken', json.qrEndToken || '');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        {
+          "name": "Generate Session QR tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expiresInMinutes\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/attendance/{{sessionId}}/qr",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance",
+                "{{sessionId}}",
+                "qr"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.environment.set('qrStartToken', json.startToken || json.qrStartToken || '');",
+                  "pm.environment.set('qrEndToken', json.endToken || json.qrEndToken || '');",
+                  "pm.environment.set('qrExpiresAt', json.expiresAt || '');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Submit Attendance (Student)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qrToken\": \"{{qrStartToken}}\",\n  \"ipAddress\": \"127.0.0.1\",\n  \"userAgent\": \"Postman\"\n}"
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attendance/{{sessionId}}/scan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance",
+                "{{sessionId}}",
+                "scan"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Grades",
+      "item": [
+        {
+          "name": "Create / Update Grade",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"labId\": \"{{labId}}\",\n  \"category\": \"Lab Report\",\n  \"score\": 18,\n  \"maxScore\": 20,\n  \"comment\": \"Great job\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/grades",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "grades"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Grades for Student (Teacher/Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/grades/students/{{studentId}}?labId={{labId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "grades",
+                "students",
+                "{{studentId}}"
+              ],
+              "query": [
+                {
+                  "key": "labId",
+                  "value": "{{labId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Grades (Student)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/grades/me?labId={{labId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "grades",
+                "me"
+              ],
+              "query": [
+                {
+                  "key": "labId",
+                  "value": "{{labId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "item": [
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "labId",
+                  "value": "{{labId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/files",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "files"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get File Download URL",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/url",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "files",
+                "{{fileId}}",
+                "url"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"lab:{{labId}}\",\n  \"content\": \"Reminder: bring lab notebooks.\",\n  \"labId\": \"{{labId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Messages (Channel)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/messages?channel=lab:{{labId}}&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "channel",
+                  "value": "lab:{{labId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "studentAccessToken",
+      "value": ""
+    },
+    {
+      "key": "currentUserId",
+      "value": ""
+    },
+    {
+      "key": "currentUserRole",
+      "value": ""
+    },
+    {
+      "key": "labId",
+      "value": ""
+    },
+    {
+      "key": "sessionId",
+      "value": ""
+    },
+    {
+      "key": "studentId",
+      "value": ""
+    },
+    {
+      "key": "fileId",
+      "value": ""
+    },
+    {
+      "key": "qrStartToken",
+      "value": ""
+    },
+    {
+      "key": "qrEndToken",
+      "value": ""
+    },
+    {
+      "key": "sessionStartIso",
+      "value": "2025-11-05T10:00:00.000Z"
+    },
+    {
+      "key": "sessionEndIso",
+      "value": "2025-11-05T12:00:00.000Z"
+    }
+  ]
+}

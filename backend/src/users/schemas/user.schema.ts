@@ -31,6 +31,15 @@ export class User {
 
   @Prop({ type: [String], default: [] })
   fcmTokens: string[];
+
+  @Prop({ type: Boolean, default: false })
+  isSuspended: boolean;
+
+  @Prop({ type: Date })
+  suspendedAt?: Date;
+
+  @Prop({ type: String, trim: true })
+  suspendReason?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

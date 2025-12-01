@@ -86,10 +86,7 @@ export class GradingService {
     requesterRole: UserRole,
     labId?: string,
   ): Promise<GradeDocument[]> {
-    if (
-      requesterRole === UserRole.Student &&
-      requesterId !== userId
-    ) {
+    if (requesterRole === UserRole.Student && requesterId !== userId) {
       throw new ForbiddenException('Students can only view their own grades');
     }
 
@@ -129,9 +126,7 @@ export class GradingService {
       }
     }
 
-    return this.gradeModel
-      .find({ labId: new Types.ObjectId(labId) })
-      .exec();
+    return this.gradeModel.find({ labId: new Types.ObjectId(labId) }).exec();
   }
 
   private async notifyGradePublished(

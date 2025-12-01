@@ -23,13 +23,25 @@ export class Session {
   qrEndToken: string;
 
   @Prop({ required: false })
-  recordedVideoUrl?: string;
-
-  @Prop({ required: false })
   qrStartExpiresAt?: Date;
 
   @Prop({ required: false })
   qrEndExpiresAt?: Date;
+
+  @Prop({ type: Boolean, default: false })
+  isStreaming: boolean;
+
+  @Prop({ type: String, trim: true })
+  streamUrl?: string;
+
+  @Prop({ type: String, trim: true })
+  streamKey?: string;
+
+  @Prop({ type: Date })
+  streamStartedAt?: Date;
+
+  @Prop({ type: Date })
+  streamEndedAt?: Date;
 }
 
 export const SessionSchema = SchemaFactory.createForClass(Session);

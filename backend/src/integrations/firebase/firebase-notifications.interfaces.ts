@@ -1,4 +1,9 @@
-import { ModuleMetadata, Type } from '@nestjs/common';
+import type {
+  InjectionToken,
+  ModuleMetadata,
+  OptionalFactoryDependency,
+  Type,
+} from '@nestjs/common';
 
 export interface FirebaseNotificationsCredentials {
   projectId?: string;
@@ -23,7 +28,9 @@ export interface FirebaseNotificationsModuleAsyncOptions
   useExisting?: Type<FirebaseNotificationsOptionsFactory>;
   useClass?: Type<FirebaseNotificationsOptionsFactory>;
   useFactory?: (
-    ...args: any[]
-  ) => Promise<FirebaseNotificationsModuleOptions> | FirebaseNotificationsModuleOptions;
-  inject?: any[];
+    ...args: unknown[]
+  ) =>
+    | Promise<FirebaseNotificationsModuleOptions>
+    | FirebaseNotificationsModuleOptions;
+  inject?: ReadonlyArray<InjectionToken | OptionalFactoryDependency>;
 }

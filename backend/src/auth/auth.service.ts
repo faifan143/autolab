@@ -37,7 +37,15 @@ export class AuthService {
       role: dto.role ?? UserRole.Student,
     });
 
-    return this.generateAuthResponse(user.id, user.name, user.email, user.role);
+    return this.generateAuthResponse(
+      user.id,
+      user.name,
+      user.email,
+      user.role,
+      user.isSuspended ?? false,
+      user.suspendedAt ?? undefined,
+      user.suspendReason ?? undefined,
+    );
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
@@ -47,12 +55,27 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
+    if (user.isSuspended) {
+      throw new UnauthorizedException('Account suspended');
+    }
+
+    const passwordMatches = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.generateAuthResponse(user.id, user.name, user.email, user.role);
+    return this.generateAuthResponse(
+      user.id,
+      user.name,
+      user.email,
+      user.role,
+      user.isSuspended ?? false,
+      user.suspendedAt ?? undefined,
+      user.suspendReason ?? undefined,
+    );
   }
 
   private async generateAuthResponse(
@@ -60,13 +83,19 @@ export class AuthService {
     name: string,
     email: string,
     role: UserRole,
+    isSuspended: boolean,
+    suspendedAt?: Date,
+    suspendReason?: string,
   ): Promise<AuthResponseDto> {
     const payload: JwtPayload = { sub: id, role };
 
     const accessToken = await this.jwtService.signAsync(payload);
     const refreshToken = await this.jwtService.signAsync(payload, {
       secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-      expiresIn: resolveTokenTtl(this.configService.get('JWT_REFRESH_EXPIRES_IN'), 60 * 60 * 24 * 7),
+      expiresIn: resolveTokenTtl(
+        this.configService.get('JWT_REFRESH_EXPIRES_IN'),
+        60 * 60 * 24 * 7,
+      ),
     });
 
     return {
@@ -77,6 +106,9 @@ export class AuthService {
         name,
         email,
         role,
+        isSuspended,
+        suspendedAt: suspendedAt ? suspendedAt.toISOString() : undefined,
+        suspendReason,
       },
     };
   }

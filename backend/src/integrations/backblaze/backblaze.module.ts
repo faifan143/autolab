@@ -31,13 +31,15 @@ export class BackblazeModule {
     };
   }
 
-  private static createAsyncProviders(options: BackblazeModuleAsyncOptions): Provider[] {
+  private static createAsyncProviders(
+    options: BackblazeModuleAsyncOptions,
+  ): Provider[] {
     if (options.useFactory) {
       return [
         {
           provide: BACKBLAZE_MODULE_OPTIONS,
           useFactory: options.useFactory,
-          inject: options.inject ?? [],
+          inject: options.inject ? [...options.inject] : [],
         },
       ];
     }
@@ -55,9 +57,7 @@ export class BackblazeModule {
         },
         inject: [useClass],
       },
-      ...(options.useClass
-        ? [{ provide: useClass, useClass }]
-        : []),
+      ...(options.useClass ? [{ provide: useClass, useClass }] : []),
     ];
   }
 }

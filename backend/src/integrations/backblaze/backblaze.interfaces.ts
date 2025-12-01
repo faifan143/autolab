@@ -1,4 +1,9 @@
-import { ModuleMetadata, Type } from '@nestjs/common';
+import type {
+  ModuleMetadata,
+  OptionalFactoryDependency,
+  Type,
+  InjectionToken,
+} from '@nestjs/common';
 
 export interface BackblazeModuleOptions {
   endpoint: string;
@@ -10,12 +15,17 @@ export interface BackblazeModuleOptions {
 }
 
 export interface BackblazeOptionsFactory {
-  createBackblazeOptions(): Promise<BackblazeModuleOptions> | BackblazeModuleOptions;
+  createBackblazeOptions():
+    | Promise<BackblazeModuleOptions>
+    | BackblazeModuleOptions;
 }
 
-export interface BackblazeModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
+export interface BackblazeModuleAsyncOptions
+  extends Pick<ModuleMetadata, 'imports'> {
   useExisting?: Type<BackblazeOptionsFactory>;
   useClass?: Type<BackblazeOptionsFactory>;
-  useFactory?: (...args: any[]) => Promise<BackblazeModuleOptions> | BackblazeModuleOptions;
-  inject?: any[];
+  useFactory?: (
+    ...args: unknown[]
+  ) => Promise<BackblazeModuleOptions> | BackblazeModuleOptions;
+  inject?: ReadonlyArray<InjectionToken | OptionalFactoryDependency>;
 }

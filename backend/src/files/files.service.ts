@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Express } from 'express';
-import { Model, Types } from 'mongoose';
+import { FilterQuery, Model, Types } from 'mongoose';
 import { LabDocument } from '../labs/schemas/lab.schema';
 import { LabsService } from '../labs/labs.service';
 import { SessionDocument } from '../sessions/schemas/session.schema';
@@ -16,6 +16,20 @@ import { UsersService } from '../users/users.service';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { StoredFile, FileDocument } from './schemas/file.schema';
 import { BackblazeService } from '../integrations/backblaze/backblaze.service';
+
+export interface FileResponse {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  ownerId: string;
+  labId?: string;
+  sessionId?: string;
+  storageKey: string;
+  version: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 @Injectable()
 export class FilesService {
@@ -45,6 +59,7 @@ export class FilesService {
 
     let lab: LabDocument | null = null;
     if (dto.labId) {
+      this.ensureValidObjectId(dto.labId, 'labId');
       lab = await this.labsService.findById(dto.labId);
       if (!lab) {
         throw new NotFoundException('Lab not found');
@@ -54,12 +69,15 @@ export class FilesService {
 
     let session: SessionDocument | null = null;
     if (dto.sessionId) {
+      this.ensureValidObjectId(dto.sessionId, 'sessionId');
       session = await this.sessionsService.findById(dto.sessionId);
       if (!session) {
         throw new NotFoundException('Session not found');
       }
       if (lab && session.labId.toString() !== lab.id) {
-        throw new BadRequestException('Session does not belong to the provided lab');
+        throw new BadRequestException(
+          'Session does not belong to the provided lab',
+        );
       }
       if (!lab) {
         lab = await this.labsService.findById(session.labId.toString());
@@ -71,7 +89,9 @@ export class FilesService {
     }
 
     if (!lab && role === UserRole.Student) {
-      throw new ForbiddenException('Students must target a lab when uploading files');
+      throw new ForbiddenException(
+        'Students must target a lab when uploading files',
+      );
     }
 
     const labId = lab?.id;
@@ -90,7 +110,11 @@ export class FilesService {
       contentType: file.mimetype,
     });
 
-    const version = await this.computeVersion(file.originalname, labId, sessionId);
+    const version = await this.computeVersion(
+      file.originalname,
+      labId,
+      sessionId,
+    );
 
     const storedFile = await this.fileModel.create({
       fileName: file.originalname,
@@ -118,6 +142,7 @@ export class FilesService {
   }
 
   async getDownloadUrl(fileId: string, requesterId: string, role: UserRole) {
+    this.ensureValidObjectId(fileId, 'fileId');
     const file = await this.fileModel.findById(fileId);
     if (!file) {
       throw new NotFoundException('File not found');
@@ -129,12 +154,91 @@ export class FilesService {
         throw new NotFoundException('Lab not found for file');
       }
       this.ensureLabAccess(lab, requesterId, role);
-    } else if (role !== UserRole.Admin && file.ownerId.toString() !== requesterId) {
+    } else if (
+      role !== UserRole.Admin &&
+      file.ownerId.toString() !== requesterId
+    ) {
       throw new ForbiddenException('Unauthorized to access this file');
     }
 
     const url = await this.backblazeService.getSignedUrl(file.storageKey);
     return { url };
+  }
+
+  async findAll(
+    requesterId: string,
+    role: UserRole,
+    labId?: string,
+    sessionId?: string,
+    ownerId?: string,
+  ): Promise<FileResponse[]> {
+    // Build query
+    const query: FilterQuery<FileDocument> = {};
+
+    if (labId) {
+      query.labId = this.parseObjectId(labId, 'labId');
+    }
+
+    if (sessionId) {
+      query.sessionId = this.parseObjectId(sessionId, 'sessionId');
+    }
+
+    if (ownerId && role === UserRole.Admin) {
+      // Only admins can filter by ownerId
+      query.ownerId = this.parseObjectId(ownerId, 'ownerId');
+    }
+
+    // Get all files matching the query
+    const files = await this.fileModel.find(query).exec();
+
+    // Filter files based on authorization
+    const authorizedFiles: FileDocument[] = [];
+    for (const file of files) {
+      try {
+        if (file.labId) {
+          const lab = await this.labsService.findById(file.labId.toString());
+          if (lab) {
+            this.ensureLabAccess(lab, requesterId, role);
+            authorizedFiles.push(file);
+          }
+        } else {
+          // Files without labId can only be accessed by owner or admin
+          if (
+            role === UserRole.Admin ||
+            file.ownerId.toString() === requesterId
+          ) {
+            authorizedFiles.push(file);
+          }
+        }
+      } catch (error) {
+        // Skip files user doesn't have access to
+        continue;
+      }
+    }
+
+    return authorizedFiles.map((file) => this.formatFileResponse(file));
+  }
+
+  private formatFileResponse(file: FileDocument): FileResponse {
+    const timestampedFile = file as FileDocument & {
+      _id: Types.ObjectId;
+      createdAt?: Date;
+      updatedAt?: Date;
+    };
+
+    return {
+      id: timestampedFile._id.toHexString(),
+      fileName: timestampedFile.fileName,
+      mimeType: timestampedFile.mimeType,
+      size: timestampedFile.size,
+      ownerId: timestampedFile.ownerId.toString(),
+      labId: timestampedFile.labId?.toString(),
+      sessionId: timestampedFile.sessionId?.toString(),
+      storageKey: timestampedFile.storageKey,
+      version: timestampedFile.version,
+      createdAt: timestampedFile.createdAt?.toISOString(),
+      updatedAt: timestampedFile.updatedAt?.toISOString(),
+    };
   }
 
   private async computeVersion(
@@ -144,10 +248,10 @@ export class FilesService {
   ): Promise<number> {
     const criteria: Record<string, unknown> = { fileName };
     if (labId) {
-      criteria.labId = new Types.ObjectId(labId);
+      criteria.labId = this.parseObjectId(labId, 'labId');
     }
     if (sessionId) {
-      criteria.sessionId = new Types.ObjectId(sessionId);
+      criteria.sessionId = this.parseObjectId(sessionId, 'sessionId');
     }
 
     const latest = await this.fileModel
@@ -159,7 +263,11 @@ export class FilesService {
     return latest.length ? latest[0].version + 1 : 1;
   }
 
-  private ensureLabAccess(lab: LabDocument, requesterId: string, role: UserRole) {
+  private ensureLabAccess(
+    lab: LabDocument,
+    requesterId: string,
+    role: UserRole,
+  ) {
     if (role === UserRole.Admin) {
       return;
     }
@@ -172,7 +280,7 @@ export class FilesService {
     }
 
     if (role === UserRole.Student) {
-      const studentIds = (lab.students ?? []) as Types.ObjectId[];
+      const studentIds = lab.students ?? [];
       const isMember = studentIds.some((id) => id.toString() === requesterId);
       if (!isMember) {
         throw new ForbiddenException('Students must belong to the lab');
@@ -199,5 +307,16 @@ export class FilesService {
     ];
 
     return segments.join('/');
+  }
+
+  private ensureValidObjectId(id: string, field: string) {
+    if (!id || !Types.ObjectId.isValid(id)) {
+      throw new BadRequestException(`${field} must be a valid ObjectId`);
+    }
+  }
+
+  private parseObjectId(id: string, field: string) {
+    this.ensureValidObjectId(id, field);
+    return new Types.ObjectId(id);
   }
 }

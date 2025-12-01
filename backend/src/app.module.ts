@@ -11,6 +11,10 @@ import { FirebaseNotificationsModule } from './integrations/firebase/firebase-no
 import { SeedModule } from './seed/seed.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { UsersModule } from './users/users.module';
+import { ComplaintsModule } from './complaints/complaints.module';
+import { ChatModule } from './chat/chat.module';
+import { AdminModule } from './admin/admin.module';
+import { StreamingModule } from './streaming/streaming.module';
 
 @Module({
   imports: [
@@ -35,14 +39,21 @@ import { UsersModule } from './users/users.module';
       useFactory: (configService: ConfigService) => ({
         credential: {
           projectId: configService.get<string>('FIREBASE_PROJECT_ID'),
-          clientEmail: configService.getOrThrow<string>('FIREBASE_CLIENT_EMAIL'),
+          clientEmail: configService.getOrThrow<string>(
+            'FIREBASE_CLIENT_EMAIL',
+          ),
           privateKey: configService.getOrThrow<string>('FIREBASE_PRIVATE_KEY'),
         },
-        defaultTtlSeconds: configService.get<number>('FIREBASE_DEFAULT_TTL') ?? 3600,
+        defaultTtlSeconds:
+          configService.get<number>('FIREBASE_DEFAULT_TTL') ?? 3600,
       }),
       inject: [ConfigService],
     }),
     FilesModule,
+    ComplaintsModule,
+    ChatModule,
+    AdminModule,
+    StreamingModule,
   ],
   controllers: [HealthController],
   providers: [],

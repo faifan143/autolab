@@ -1,6 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { App, cert, getApps, initializeApp } from 'firebase-admin/app';
-import { getMessaging, Messaging, MulticastMessage } from 'firebase-admin/messaging';
+import {
+  getMessaging,
+  Messaging,
+  MulticastMessage,
+} from 'firebase-admin/messaging';
 import { FIREBASE_NOTIFICATIONS_OPTIONS } from './firebase-notifications.constants';
 import type { FirebaseNotificationsModuleOptions } from './firebase-notifications.interfaces';
 
@@ -12,7 +16,10 @@ export class FirebaseNotificationsService {
   private readonly defaultTtlSeconds: number;
   private readonly options: FirebaseNotificationsModuleOptions;
 
-  constructor(@Inject(FIREBASE_NOTIFICATIONS_OPTIONS) options: FirebaseNotificationsModuleOptions) {
+  constructor(
+    @Inject(FIREBASE_NOTIFICATIONS_OPTIONS)
+    options: FirebaseNotificationsModuleOptions,
+  ) {
     this.options = options;
     const appName = options.appName ?? 'firebase-notifications';
     const existingApp = getApps().find((app) => app.name === appName);

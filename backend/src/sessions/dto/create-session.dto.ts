@@ -1,4 +1,10 @@
-import { IsDateString, IsMongoId, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsDateString,
+  IsMongoId,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateSessionDto {
   @IsMongoId()
@@ -9,8 +15,4 @@ export class CreateSessionDto {
 
   @IsDateString()
   endTime: string;
-
-  @IsOptional()
-  @IsString()
-  recordedVideoUrl?: string;
 }

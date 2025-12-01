@@ -1,4 +1,8 @@
-import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -22,7 +26,9 @@ export class BackblazeService {
   private readonly client: S3Client;
   private readonly bucket: string;
 
-  constructor(@Inject(BACKBLAZE_MODULE_OPTIONS) options: BackblazeModuleOptions) {
+  constructor(
+    @Inject(BACKBLAZE_MODULE_OPTIONS) options: BackblazeModuleOptions,
+  ) {
     this.options = options;
     this.bucket = options.bucket;
     this.client = new S3Client({
@@ -48,7 +54,9 @@ export class BackblazeService {
     try {
       await this.client.send(command);
     } catch (error) {
-      throw new InternalServerErrorException('Failed to upload object to Backblaze');
+      throw new InternalServerErrorException(
+        'Failed to upload object to Backblaze',
+      );
     }
   }
 
@@ -56,7 +64,9 @@ export class BackblazeService {
     const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
 
     try {
-      return await getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
+      return await getSignedUrl(this.client, command, {
+        expiresIn: expiresInSeconds,
+      });
     } catch (error) {
       throw new InternalServerErrorException('Failed to generate signed URL');
     }
@@ -68,7 +78,9 @@ export class BackblazeService {
     try {
       await this.client.send(command);
     } catch (error) {
-      throw new InternalServerErrorException('Failed to delete object from Backblaze');
+      throw new InternalServerErrorException(
+        'Failed to delete object from Backblaze',
+      );
     }
   }
 }

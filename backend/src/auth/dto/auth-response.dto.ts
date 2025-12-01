@@ -8,5 +8,8 @@ export class AuthResponseDto {
     name: string;
     email: string;
     role: UserRole;
+    isSuspended?: boolean;
+    suspendedAt?: string;
+    suspendReason?: string;
   };
 }

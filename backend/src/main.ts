@@ -7,6 +7,27 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Enable CORS for web and mobile clients (handles preflight OPTIONS)
+  const configService = app.get(ConfigService);
+  const defaultOrigins = [
+    'http://localhost:3000',
+    'http://localhost:4200',
+    'http://localhost:49954',
+  ];
+  const envOrigins = configService
+    .get<string>('FRONTEND_ORIGINS')
+    ?.split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  app.enableCors({
+    origin: "*",
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    optionsSuccessStatus: 204,
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -17,9 +38,8 @@ async function bootstrap() {
   );
 
   app.useWebSocketAdapter(new IoAdapter(app));
-  app.enableCors();
 
-  const configService = app.get(ConfigService);
+
   const port = configService.get<number>('PORT') ?? 3000;
   const host = configService.get<string>('HOST') ?? '0.0.0.0';
 

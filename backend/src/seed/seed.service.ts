@@ -73,10 +73,13 @@ export class SeedService implements OnApplicationBootstrap {
   }
 
   private async seedUser(config: SeedUserConfig): Promise<UserDocument | null> {
-    const email = this.configService.get<string>(config.emailKey)?.toLowerCase();
+    const email = this.configService
+      .get<string>(config.emailKey)
+      ?.toLowerCase();
     const password = this.configService.get<string>(config.passwordKey);
     const name =
-      this.configService.get<string>(config.nameKey)?.trim() || config.defaultName;
+      this.configService.get<string>(config.nameKey)?.trim() ||
+      config.defaultName;
 
     if (!email || !password) {
       this.logger.warn(
@@ -87,7 +90,9 @@ export class SeedService implements OnApplicationBootstrap {
 
     const existingUser = await this.usersService.findByEmail(email);
     if (existingUser) {
-      this.logger.debug(`Skipping ${config.role} seed: user with email ${email} already exists.`);
+      this.logger.debug(
+        `Skipping ${config.role} seed: user with email ${email} already exists.`,
+      );
       return existingUser;
     }
 
@@ -104,13 +109,17 @@ export class SeedService implements OnApplicationBootstrap {
     return user;
   }
 
-  private async seedLabAndSession(seededUsers: Map<UserRole, string>): Promise<void> {
+  private async seedLabAndSession(
+    seededUsers: Map<UserRole, string>,
+  ): Promise<void> {
     const adminId = seededUsers.get(UserRole.Admin);
     const teacherId = seededUsers.get(UserRole.Teacher);
     const studentId = seededUsers.get(UserRole.Student);
 
     if (!adminId || !teacherId) {
-      this.logger.warn('Skipping lab/session seeding: missing admin or teacher account.');
+      this.logger.warn(
+        'Skipping lab/session seeding: missing admin or teacher account.',
+      );
       return;
     }
 

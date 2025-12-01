@@ -21,7 +21,9 @@ export class FirebaseNotificationsModule {
     };
   }
 
-  static forRootAsync(options: FirebaseNotificationsModuleAsyncOptions): DynamicModule {
+  static forRootAsync(
+    options: FirebaseNotificationsModuleAsyncOptions,
+  ): DynamicModule {
     const providers = this.createAsyncProviders(options);
 
     return {
@@ -32,13 +34,15 @@ export class FirebaseNotificationsModule {
     };
   }
 
-  private static createAsyncProviders(options: FirebaseNotificationsModuleAsyncOptions): Provider[] {
+  private static createAsyncProviders(
+    options: FirebaseNotificationsModuleAsyncOptions,
+  ): Provider[] {
     if (options.useFactory) {
       return [
         {
           provide: FIREBASE_NOTIFICATIONS_OPTIONS,
           useFactory: options.useFactory,
-          inject: options.inject ?? [],
+          inject: options.inject ? [...options.inject] : [],
         },
       ];
     }
@@ -57,9 +61,7 @@ export class FirebaseNotificationsModule {
         },
         inject: [useClass],
       },
-      ...(options.useClass
-        ? [{ provide: useClass, useClass }]
-        : []),
+      ...(options.useClass ? [{ provide: useClass, useClass }] : []),
     ];
   }
 }

@@ -11,7 +11,9 @@ import { Attendance, AttendanceSchema } from './schemas/attendance.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Attendance.name, schema: AttendanceSchema }]),
+    MongooseModule.forFeature([
+      { name: Attendance.name, schema: AttendanceSchema },
+    ]),
     UsersModule,
     LabsModule,
     SessionsModule,

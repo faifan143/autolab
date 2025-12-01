@@ -15,6 +15,30 @@ export class Lab {
 
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
   students: Types.ObjectId[];
+
+  @Prop({ type: Boolean, default: false })
+  isArchived: boolean;
+
+  @Prop({ type: Date })
+  archivedAt?: Date;
+
+  @Prop({ type: Boolean, default: false })
+  isSuspended: boolean;
+
+  @Prop({ type: Date })
+  suspendedAt?: Date;
+
+  @Prop({ type: String, trim: true })
+  suspendReason?: string;
+
+  @Prop({ type: Boolean, default: false })
+  archiveRequested: boolean;
+
+  @Prop({ type: Date })
+  archiveRequestedAt?: Date;
+
+  @Prop({ type: String, trim: true })
+  archiveRequestReason?: string;
 }
 
 export const LabSchema = SchemaFactory.createForClass(Lab);
