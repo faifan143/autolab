@@ -5,6 +5,7 @@ import '../../../core/controllers/theme_controller.dart';
 import '../../../core/controllers/locale_controller.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/widgets/server_ip_dialog.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -21,6 +22,15 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('settings'.tr),
+      ),
+      floatingActionButton: FloatingActionButton(
+        child: const Icon(Icons.settings),
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (_) => const ServerIpDialog(),
+          );
+        },
       ),
       body: ListView(
         children: [
