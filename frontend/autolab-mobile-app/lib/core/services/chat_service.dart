@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
-import '../config/env.dart';
+import '../config/server_config.dart';
 import '../constants/api_constants.dart';
 import '../models/chat_message_model.dart';
 import 'api_service.dart';
@@ -47,7 +47,7 @@ class ChatService {
     if (_socket != null) return;
 
     final token = await _storage.getAccessToken();
-    final uri = Env.wsTeachersUrl;
+    final uri = '${ServerConfig.instance.wsBaseUrl}/ws/teachers/';
 
     _socket = io.io(
       uri,

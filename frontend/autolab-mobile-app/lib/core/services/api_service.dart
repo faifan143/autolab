@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
 
 import '../config/app_config.dart';
+import '../config/server_config.dart';
 import '../constants/api_constants.dart';
 import '../models/auth_response_model.dart';
 import '../routes/app_routes.dart';
@@ -13,6 +14,7 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
+  static ApiService get instance => _instance;
 
   late Dio _dio;
   final Logger _logger = Logger();
@@ -23,7 +25,7 @@ class ApiService {
   Future<void> init() async {
     _dio = Dio(
       BaseOptions(
-        baseUrl: AppConfig.apiBaseUrl,
+        baseUrl: ServerConfig.instance.apiBaseUrl,
         connectTimeout: AppConfig.connectTimeout,
         receiveTimeout: AppConfig.receiveTimeout,
         sendTimeout: AppConfig.sendTimeout,
@@ -34,7 +36,7 @@ class ApiService {
       ),
     );
 
-    _logger.i('API Base URL: ${AppConfig.apiBaseUrl}');
+    _logger.i('API Base URL: ${ServerConfig.instance.apiBaseUrl}');
 
     // Add interceptors
     _dio.interceptors.add(
