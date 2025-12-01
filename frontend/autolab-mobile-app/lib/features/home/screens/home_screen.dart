@@ -30,7 +30,8 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Text('app.title'.tr, style: theme.textTheme.titleMedium),
                   Text(
-                    'welcome.back'.trParams({'name': _firstName(user?.name ?? 'Teacher')}),
+                    'welcome.back'.trParams(
+                        {'name': _firstName(user?.name ?? 'Teacher')}),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: color.onSurfaceVariant,
                     ),
@@ -62,7 +63,8 @@ class HomeScreen extends StatelessWidget {
                   onLogout: () async {
                     await auth.logout();
                     if (context.mounted) {
-                      Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+                      Navigator.of(context)
+                          .pushReplacementNamed(AppRoutes.login);
                     }
                   },
                 ),
@@ -88,7 +90,8 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.science_outlined,
                     title: 'my.labs'.tr,
                     subtitle: 'manage.students.sessions'.tr,
-                    onTap: () => Navigator.of(context).pushNamed(AppRoutes.labs),
+                    onTap: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.labs),
                   ),
                   DashboardActionCard(
                     icon: Icons.qr_code_2_outlined,
@@ -101,13 +104,15 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.grade_outlined,
                     title: 'grading'.tr,
                     subtitle: 'evaluate.publish'.tr,
-                    onTap: () => Navigator.of(context).pushNamed(AppRoutes.grades),
+                    onTap: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.grades),
                   ),
                   DashboardActionCard(
                     icon: Icons.folder_open_outlined,
                     title: 'files'.tr,
                     subtitle: 'upload.share'.tr,
-                    onTap: () => Navigator.of(context).pushNamed(AppRoutes.files),
+                    onTap: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.files),
                   ),
                   DashboardActionCard(
                     icon: Icons.chat_bubble_outline,
@@ -335,5 +340,3 @@ class DashboardActionCard extends StatelessWidget {
     );
   }
 }
-
-
