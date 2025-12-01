@@ -39,6 +39,13 @@ class LabsProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    _labs = [];
+    _error = null;
+    _loading = false;
+    notifyListeners();
+  }
 }
 
 

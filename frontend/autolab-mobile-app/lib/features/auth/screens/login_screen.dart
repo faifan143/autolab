@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/labs_provider.dart';
 import '../../../core/config/server_config.dart';
 import '../../../core/services/api_service.dart';
 
@@ -227,14 +228,35 @@ class _ServerIpDialogState extends State<_ServerIpDialog> {
         ),
         ElevatedButton(
           onPressed: () async {
-            final ip =
-                '${c1.text}.${c2.text}.${c3.text}.${c4.text}'.trim();
+            final p1 = c1.text.trim();
+            final p2 = c2.text.trim();
+            final p3 = c3.text.trim();
+            final p4 = c4.text.trim();
+
+            bool validPart(String part) {
+              final v = int.tryParse(part);
+              if (v == null) return false;
+              return v >= 0 && v <= 255;
+            }
+
+            if (!validPart(p1) || !validPart(p2) || !validPart(p3) || !validPart(p4)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Invalid IP address')),
+              );
+              return;
+            }
+
+            final ip = '$p1.$p2.$p3.$p4';
 
             await ServerConfig.instance.setServerIp(ip);
 
             await ApiService.instance.init();
 
             if (!context.mounted) return;
+
+            Provider.of<AuthProvider>(context, listen: false).reset();
+            Provider.of<LabsProvider>(context, listen: false).reset();
+
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Server IP set to $ip')),

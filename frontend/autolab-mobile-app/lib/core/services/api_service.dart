@@ -36,7 +36,7 @@ class ApiService {
       ),
     );
 
-    _logger.i('API Base URL: ${ServerConfig.instance.apiBaseUrl}');
+    _logger.i('API BASE URL = ${ServerConfig.instance.apiBaseUrl}');
 
     // Add interceptors
     _dio.interceptors.add(
