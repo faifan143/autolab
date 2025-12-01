@@ -39,6 +39,7 @@ class MyApp extends StatelessWidget {
           ChangeNotifierProvider(create: (_) => LabsProvider()),
         ],
         child: GetMaterialApp(
+          navigatorKey: AppRoutes.appNavigatorKey,
           title: AppConfig.appName,
           debugShowCheckedModeBanner: false,
           theme: Get.locale?.languageCode == 'ar'

@@ -28,6 +28,10 @@ class AppRoutes {
   static const String chat = '/chat';
   static const String settings = '/settings';
 
+  /// Global navigator key used for app-wide navigation (e.g. 401 handling).
+  static final GlobalKey<NavigatorState> appNavigatorKey =
+      GlobalKey<NavigatorState>();
+
   static Map<String, WidgetBuilder> routes = {
     splash: (context) => const SplashScreen(),
     login: (context) => const LoginScreen(),

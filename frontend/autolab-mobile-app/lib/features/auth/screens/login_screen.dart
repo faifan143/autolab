@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/providers/auth_provider.dart';
@@ -39,8 +40,10 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.error ?? 'Login failed'),
-          backgroundColor: Colors.red,
+          content: Text(
+            authProvider.error ?? 'auth.login.error.generic'.tr,
+          ),
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -68,7 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Welcome Back',
+                    'auth.login.title'.tr,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -76,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Sign in to continue',
+                    'auth.login.subtitle'.tr,
                     style: Theme.of(context).textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
@@ -84,16 +87,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email),
+                    decoration: InputDecoration(
+                      labelText: 'auth.login.email'.tr,
+                      prefixIcon: const Icon(Icons.email),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
+                        return 'auth.login.error.emailRequired'.tr;
                       }
                       if (!value.contains('@')) {
-                        return 'Please enter a valid email';
+                        return 'auth.login.error.emailInvalid'.tr;
                       }
                       return null;
                     },
@@ -103,11 +106,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Password',
+                      labelText: 'auth.login.password'.tr,
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                          _obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
                         ),
                         onPressed: () {
                           setState(() {
@@ -118,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
+                        return 'auth.login.error.passwordRequired'.tr;
                       }
                       return null;
                     },
@@ -132,14 +137,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Login'),
+                        : Text('auth.login.button'.tr),
                   ),
                   const SizedBox(height: 16),
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).pushNamed(AppRoutes.register);
                     },
-                    child: const Text('Don\'t have an account? Register'),
+                    child: Text('auth.login.noAccount'.tr),
                   ),
                 ],
               ),

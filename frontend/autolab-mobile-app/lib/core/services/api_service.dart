@@ -1,7 +1,12 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
 
 import '../config/app_config.dart';
+import '../constants/api_constants.dart';
+import '../models/auth_response_model.dart';
+import '../routes/app_routes.dart';
 import 'storage_service.dart';
 
 class ApiService {
@@ -45,51 +50,133 @@ class ApiService {
         },
         onResponse: (response, handler) {
           _logger.d(
-              'Response: ${response.statusCode} ${response.requestOptions.path}');
+            'Response: ${response.statusCode} ${response.requestOptions.path}',
+          );
           return handler.next(response);
         },
-        onError: (error, handler) {
+        onError: (error, handler) async {
           _logger.e(
-              'Error: ${error.response?.statusCode} ${error.requestOptions.path}');
-          if (error.response?.statusCode == 401) {
-            // Handle token refresh or logout
-            _handleUnauthorized();
+            'Error: ${error.response?.statusCode} ${error.requestOptions.path}',
+          );
+
+          final statusCode = error.response?.statusCode;
+          final requestOptions = error.requestOptions;
+          final isRefreshCall =
+              requestOptions.path == ApiConstants.refreshToken;
+
+          // Attempt a single token refresh on 401 for non-refresh calls.
+          if (statusCode == 401 &&
+              !isRefreshCall &&
+              requestOptions.extra['retried'] != true) {
+            final refreshed = await _tryRefreshToken();
+
+            if (refreshed) {
+              final token = await _storage.getAccessToken();
+              if (token != null) {
+                requestOptions.headers['Authorization'] = 'Bearer $token';
+              }
+              requestOptions.extra['retried'] = true;
+
+              try {
+                final cloneResponse = await _dio.fetch(requestOptions);
+                return handler.resolve(cloneResponse);
+              } catch (e) {
+                _logger.e('Retry after refresh failed: $e');
+              }
+            }
+
+            // Refresh failed or retry failed → treat as unauthorized.
+            await _handleUnauthorized();
           }
+
           return handler.next(error);
         },
       ),
     );
   }
 
-  void _handleUnauthorized() {
-    // Clear tokens and redirect to login
-    _storage.clearTokens();
-    // You can add navigation logic here using a global navigator key
+  Future<bool> _tryRefreshToken() async {
+    final refreshToken = await _storage.getRefreshToken();
+    if (refreshToken == null) {
+      _logger.w('No refresh token available.');
+      return false;
+    }
+
+    try {
+      final response = await _dio.post(
+        ApiConstants.refreshToken,
+        data: {'refreshToken': refreshToken},
+      );
+
+      dynamic data = response.data;
+      if (data is String) {
+        data = jsonDecode(data);
+      }
+
+      final authResponse =
+          AuthResponseModel.fromJson(data as Map<String, dynamic>);
+
+      await _storage.saveAccessToken(authResponse.accessToken);
+      await _storage.saveRefreshToken(authResponse.refreshToken);
+      await _storage.saveUser(jsonEncode(authResponse.user.toJson()));
+
+      _logger.i('Token refresh successful.');
+      return true;
+    } catch (e) {
+      _logger.e('Token refresh failed: $e');
+      return false;
+    }
   }
 
-  Future<Response> get(String path,
-      {Map<String, dynamic>? queryParameters}) async {
-    return await _dio.get(path, queryParameters: queryParameters);
+  Future<void> _handleUnauthorized() async {
+    // Clear tokens and user data, then redirect to login.
+    await _storage.clearAll();
+
+    final navigatorState = AppRoutes.appNavigatorKey.currentState;
+    if (navigatorState != null) {
+      navigatorState.pushNamedAndRemoveUntil(
+        AppRoutes.login,
+        (route) => false,
+      );
+    }
   }
 
-  Future<Response> post(String path,
-      {dynamic data, Map<String, dynamic>? queryParameters}) async {
-    return await _dio.post(path, data: data, queryParameters: queryParameters);
+  Future<Response> get(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    return _dio.get(path, queryParameters: queryParameters);
   }
 
-  Future<Response> put(String path,
-      {dynamic data, Map<String, dynamic>? queryParameters}) async {
-    return await _dio.put(path, data: data, queryParameters: queryParameters);
+  Future<Response> post(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    return _dio.post(path, data: data, queryParameters: queryParameters);
   }
 
-  Future<Response> patch(String path,
-      {dynamic data, Map<String, dynamic>? queryParameters}) async {
-    return await _dio.patch(path, data: data, queryParameters: queryParameters);
+  Future<Response> put(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    return _dio.put(path, data: data, queryParameters: queryParameters);
   }
 
-  Future<Response> delete(String path,
-      {Map<String, dynamic>? queryParameters}) async {
-    return await _dio.delete(path, queryParameters: queryParameters);
+  Future<Response> patch(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    return _dio.patch(path, data: data, queryParameters: queryParameters);
+  }
+
+  Future<Response> delete(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    return _dio.delete(path, queryParameters: queryParameters);
   }
 
   Future<Response> uploadFile(
@@ -104,7 +191,7 @@ class ApiService {
       fileKey: await MultipartFile.fromFile(filePath),
     });
 
-    return await _dio.post(
+    return _dio.post(
       path,
       data: formData,
       onSendProgress: onSendProgress,

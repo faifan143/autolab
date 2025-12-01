@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/providers/auth_provider.dart';
@@ -45,8 +46,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.error ?? 'Registration failed'),
-          backgroundColor: Colors.red,
+          content: Text(
+            authProvider.error ?? 'auth.register.error.generic'.tr,
+          ),
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -58,7 +61,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Register'),
+        title: Text('auth.register.button'.tr),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -69,7 +72,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Create Account',
+                  'auth.register.title'.tr,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -77,20 +80,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Sign up to get started',
+                  'auth.register.subtitle'.tr,
                   style: Theme.of(context).textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: Icon(Icons.person),
+                  decoration: InputDecoration(
+                    labelText: 'auth.register.name'.tr,
+                    prefixIcon: const Icon(Icons.person),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your name';
+                      return 'auth.register.error.nameRequired'.tr;
                     }
                     return null;
                   },
@@ -99,16 +102,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email),
+                  decoration: InputDecoration(
+                    labelText: 'auth.register.email'.tr,
+                    prefixIcon: const Icon(Icons.email),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
+                      return 'auth.register.error.emailRequired'.tr;
                     }
                     if (!value.contains('@')) {
-                      return 'Please enter a valid email';
+                      return 'auth.register.error.emailInvalid'.tr;
                     }
                     return null;
                   },
@@ -118,7 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: 'auth.register.password'.tr,
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -135,10 +138,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
+                      return 'auth.register.error.passwordRequired'.tr;
                     }
                     if (value.length < 8) {
-                      return 'Password must be at least 8 characters';
+                      return 'auth.register.error.passwordShort'.tr;
                     }
                     return null;
                   },
@@ -148,7 +151,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   decoration: InputDecoration(
-                    labelText: 'Confirm Password',
+                    labelText: 'auth.register.confirmPassword'.tr,
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -165,10 +168,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please confirm your password';
+                      return 'auth.register.error.confirmPasswordRequired'.tr;
                     }
                     if (value != _passwordController.text) {
-                      return 'Passwords do not match';
+                      return 'auth.register.error.passwordMismatch'.tr;
                     }
                     return null;
                   },
@@ -182,14 +185,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Register'),
+                      : Text('auth.register.button'.tr),
                 ),
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
                   },
-                  child: const Text('Already have an account? Login'),
+                  child: Text('auth.register.haveAccount'.tr),
                 ),
               ],
             ),

@@ -64,6 +64,39 @@ class AppTranslations extends Translations {
           'comment': 'Comment',
           'required': 'Required',
           'no.students.in.lab': 'No students in this lab',
+          // Auth - login
+          'auth.login.title': 'Welcome Back',
+          'auth.login.subtitle': 'Sign in to continue',
+          'auth.login.email': 'Email',
+          'auth.login.password': 'Password',
+          'auth.login.button': 'Login',
+          'auth.login.noAccount': 'Don\'t have an account? Register',
+          'auth.login.error.emailRequired': 'Please enter your email',
+          'auth.login.error.emailInvalid': 'Please enter a valid email',
+          'auth.login.error.passwordRequired': 'Please enter your password',
+          'auth.login.error.generic': 'Invalid email or password',
+          // Auth - register
+          'auth.register.title': 'Create Account',
+          'auth.register.subtitle': 'Register as a teacher',
+          'auth.register.name': 'Full Name',
+          'auth.register.email': 'Email',
+          'auth.register.password': 'Password',
+          'auth.register.confirmPassword': 'Confirm Password',
+          'auth.register.button': 'Register',
+          'auth.register.haveAccount': 'Already have an account? Login',
+          'auth.register.error.nameRequired': 'Please enter your name',
+          'auth.register.error.emailRequired': 'Please enter your email',
+          'auth.register.error.emailInvalid': 'Please enter a valid email',
+          'auth.register.error.passwordRequired': 'Please enter a password',
+          'auth.register.error.passwordShort':
+              'Password must be at least 8 characters',
+          'auth.register.error.confirmPasswordRequired':
+              'Please confirm your password',
+          'auth.register.error.passwordMismatch': 'Passwords do not match',
+          'auth.register.error.generic': 'Registration failed',
+          // Auth - session
+          'auth.sessionExpired':
+              'Your session has expired, please log in again.',
         },
         'ar': {
           'app.title': 'أوتولاب للمدرس',
@@ -126,6 +159,41 @@ class AppTranslations extends Translations {
           'comment': 'ملاحظة',
           'required': 'مطلوب',
           'no.students.in.lab': 'لا يوجد طلاب في هذا المختبر',
+          // Auth - login
+          'auth.login.title': 'مرحباً بعودتك',
+          'auth.login.subtitle': 'سجّل الدخول للمتابعة',
+          'auth.login.email': 'البريد الإلكتروني',
+          'auth.login.password': 'كلمة المرور',
+          'auth.login.button': 'تسجيل الدخول',
+          'auth.login.noAccount': 'ليس لديك حساب؟ سجّل الآن',
+          'auth.login.error.emailRequired': 'يرجى إدخال البريد الإلكتروني',
+          'auth.login.error.emailInvalid': 'يرجى إدخال بريد إلكتروني صالح',
+          'auth.login.error.passwordRequired': 'يرجى إدخال كلمة المرور',
+          'auth.login.error.generic': 'بيانات الدخول غير صحيحة',
+          // Auth - register
+          'auth.register.title': 'إنشاء حساب',
+          'auth.register.subtitle': 'سجّل كمعلم',
+          'auth.register.name': 'الاسم الكامل',
+          'auth.register.email': 'البريد الإلكتروني',
+          'auth.register.password': 'كلمة المرور',
+          'auth.register.confirmPassword': 'تأكيد كلمة المرور',
+          'auth.register.button': 'تسجيل',
+          'auth.register.haveAccount': 'لديك حساب بالفعل؟ سجّل الدخول',
+          'auth.register.error.nameRequired': 'يرجى إدخال الاسم',
+          'auth.register.error.emailRequired': 'يرجى إدخال البريد الإلكتروني',
+          'auth.register.error.emailInvalid':
+              'يرجى إدخال بريد إلكتروني صالح',
+          'auth.register.error.passwordRequired': 'يرجى إدخال كلمة المرور',
+          'auth.register.error.passwordShort':
+              'يجب أن تكون كلمة المرور 8 أحرف على الأقل',
+          'auth.register.error.confirmPasswordRequired':
+              'يرجى تأكيد كلمة المرور',
+          'auth.register.error.passwordMismatch':
+              'كلمتا المرور غير متطابقتين',
+          'auth.register.error.generic': 'فشل في إنشاء الحساب',
+          // Auth - session
+          'auth.sessionExpired':
+              'انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى.',
         },
       };
 }

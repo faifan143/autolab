@@ -74,6 +74,14 @@ class AuthService {
   Future<String?> getAccessToken() async {
     return await _storage.getAccessToken();
   }
+
+  /// Optional explicit refresh entrypoint if needed by UI layers.
+  Future<void> refreshToken() async {
+    // Token refresh is handled centrally in ApiService interceptors.
+    // This method is provided for completeness and future explicit use.
+    // Intentionally left as a no-op to avoid duplicating logic.
+    return;
+  }
 }
 
 
