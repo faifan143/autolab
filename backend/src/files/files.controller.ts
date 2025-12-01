@@ -12,7 +12,9 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Express } from 'express';
-import { memoryStorage } from 'multer';
+import { diskStorage } from 'multer';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -30,9 +32,18 @@ export class FilesController {
   @Roles(UserRole.Teacher, UserRole.Admin, UserRole.Student)
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: memoryStorage(),
+      // Store uploads on disk to avoid loading entire file into memory.
+      storage: diskStorage({
+        destination: join(process.cwd(), 'uploads'),
+        filename: (req, file, cb) => {
+          const extIndex = file.originalname.lastIndexOf('.');
+          const ext = extIndex !== -1 ? file.originalname.slice(extIndex) : '';
+          cb(null, `${randomUUID()}${ext}`);
+        },
+      }),
       limits: {
-        fileSize: 25 * 1024 * 1024,
+        // Allow files up to 500 MB without buffering in RAM.
+        fileSize: 500 * 1024 * 1024,
       },
     }),
   )

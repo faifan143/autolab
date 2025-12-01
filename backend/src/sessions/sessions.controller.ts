@@ -13,7 +13,9 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Express } from 'express';
-import { memoryStorage } from 'multer';
+import { diskStorage } from 'multer';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -64,7 +66,15 @@ export class SessionsController {
   @Roles(UserRole.Teacher, UserRole.Admin)
   @UseInterceptors(
     FileInterceptor('video', {
-      storage: memoryStorage(),
+      // Use disk storage to avoid buffering large videos in memory.
+      storage: diskStorage({
+        destination: join(process.cwd(), 'uploads'),
+        filename: (req, file, cb) => {
+          const extIndex = file.originalname.lastIndexOf('.');
+          const ext = extIndex !== -1 ? file.originalname.slice(extIndex) : '';
+          cb(null, `${randomUUID()}${ext}`);
+        },
+      }),
       limits: {
         fileSize: 500 * 1024 * 1024, // 500MB max for videos
       },

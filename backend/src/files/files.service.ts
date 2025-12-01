@@ -7,6 +7,8 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import type { Express } from 'express';
 import { FilterQuery, Model, Types } from 'mongoose';
+import { createReadStream, unlink } from 'node:fs';
+import { promisify } from 'node:util';
 import { LabDocument } from '../labs/schemas/lab.schema';
 import { LabsService } from '../labs/labs.service';
 import { SessionDocument } from '../sessions/schemas/session.schema';
@@ -104,41 +106,62 @@ export class FilesService {
       sessionId,
     });
 
-    await this.backblazeService.uploadObject({
-      key: storageKey,
-      body: file.buffer,
-      contentType: file.mimetype,
-    });
+    // Use a readable stream for Backblaze uploads to avoid buffering the file in RAM.
+    // When using diskStorage, multer provides `file.path`.
+    const fileStream = file.path ? createReadStream(file.path) : undefined;
+    if (!fileStream) {
+      throw new BadRequestException('File path is missing for streamed upload');
+    }
 
-    const version = await this.computeVersion(
-      file.originalname,
-      labId,
-      sessionId,
-    );
+    const unlinkAsync = promisify(unlink);
 
-    const storedFile = await this.fileModel.create({
-      fileName: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
-      ownerId: new Types.ObjectId(requesterId),
-      labId: lab ? new Types.ObjectId(lab.id) : undefined,
-      sessionId: session ? new Types.ObjectId(session.id) : undefined,
-      storageKey,
-      version,
-    });
+    try {
+      await this.backblazeService.uploadObject({
+        key: storageKey,
+        // Cast to any because AWS S3 client accepts streams but the type here is narrower.
+        body: fileStream as any,
+        contentType: file.mimetype,
+      });
 
-    const downloadUrl = await this.backblazeService.getSignedUrl(storageKey);
+      const version = await this.computeVersion(
+        file.originalname,
+        labId,
+        sessionId,
+      );
 
-    return {
-      id: storedFile.id,
-      fileName: storedFile.fileName,
-      size: storedFile.size,
-      mimeType: storedFile.mimeType,
-      labId,
-      sessionId,
-      version: storedFile.version,
-      downloadUrl,
-    };
+      const storedFile = await this.fileModel.create({
+        fileName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        ownerId: new Types.ObjectId(requesterId),
+        labId: lab ? new Types.ObjectId(lab.id) : undefined,
+        sessionId: session ? new Types.ObjectId(session.id) : undefined,
+        storageKey,
+        version,
+      });
+
+      const downloadUrl = await this.backblazeService.getSignedUrl(storageKey);
+
+      return {
+        id: storedFile.id,
+        fileName: storedFile.fileName,
+        size: storedFile.size,
+        mimeType: storedFile.mimeType,
+        labId,
+        sessionId,
+        version: storedFile.version,
+        downloadUrl,
+      };
+    } finally {
+      // Best-effort cleanup of the temporary file created by diskStorage.
+      if (file.path) {
+        try {
+          await unlinkAsync(file.path);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+    }
   }
 
   async getDownloadUrl(fileId: string, requesterId: string, role: UserRole) {
