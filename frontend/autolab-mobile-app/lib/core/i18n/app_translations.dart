@@ -131,6 +131,10 @@ class AppTranslations extends Translations {
               'Are you sure you want to log out of AutoLab Teacher?',
           'settings.logout.cancel': 'Cancel',
           'settings.logout.confirm': 'Logout',
+          // Server IP dialog
+          'server.ip.title': 'Server IP Configuration',
+          'server.ip.invalid': 'Invalid IP address',
+          'server.ip.set': 'Server IP set to @ip',
         },
         'ar': {
           'app.title': 'أوتولاب للمدرس',
@@ -262,6 +266,10 @@ class AppTranslations extends Translations {
               'هل أنت متأكد أنك تريد تسجيل الخروج من تطبيق أوتولاب للمدرس؟',
           'settings.logout.cancel': 'إلغاء',
           'settings.logout.confirm': 'تسجيل الخروج',
+          // Server IP dialog
+          'server.ip.title': 'إعداد عنوان الخادم',
+          'server.ip.invalid': 'عنوان IP غير صالح',
+          'server.ip.set': 'تم تعيين عنوان الخادم إلى @ip',
         },
       };
 }

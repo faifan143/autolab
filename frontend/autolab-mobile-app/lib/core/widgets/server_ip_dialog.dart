@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../config/server_config.dart';
@@ -46,7 +47,7 @@ class _ServerIpDialogState extends State<ServerIpDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Server IP Configuration'),
+      title: Text('server.ip.title'.tr),
       content: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         textDirection: TextDirection.ltr,
@@ -63,7 +64,7 @@ class _ServerIpDialogState extends State<ServerIpDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text('settings.logout.cancel'.tr),
         ),
         ElevatedButton(
           onPressed: () async {
@@ -83,7 +84,7 @@ class _ServerIpDialogState extends State<ServerIpDialog> {
                 !validPart(p3) ||
                 !validPart(p4)) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Invalid IP address')),
+                SnackBar(content: Text('server.ip.invalid'.tr)),
               );
               return;
             }
@@ -100,10 +101,14 @@ class _ServerIpDialogState extends State<ServerIpDialog> {
 
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Server IP set to $ip')),
+              SnackBar(
+                content: Text(
+                  'server.ip.set'.trParams({'ip': ip}),
+                ),
+              ),
             );
           },
-          child: const Text('Save'),
+          child: Text('save'.tr),
         ),
       ],
     );
