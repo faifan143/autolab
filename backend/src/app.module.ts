@@ -15,6 +15,7 @@ import { ComplaintsModule } from './complaints/complaints.module';
 import { ChatModule } from './chat/chat.module';
 import { AdminModule } from './admin/admin.module';
 import { StreamingModule } from './streaming/streaming.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { StreamingModule } from './streaming/streaming.module';
     ChatModule,
     AdminModule,
     StreamingModule,
+    SearchModule,
   ],
   controllers: [HealthController],
   providers: [],
