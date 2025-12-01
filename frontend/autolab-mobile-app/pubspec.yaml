@@ -39,7 +39,7 @@ dependencies:
   mobile_scanner: ^3.5.1
   
   # Video & Streaming
-  flutter_webrtc: ^0.9.48
+  flutter_webrtc: ^0.12.4
   video_player: ^2.8.2
   chewie: ^1.7.4
   

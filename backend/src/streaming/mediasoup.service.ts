@@ -16,17 +16,34 @@ import { networkInterfaces } from 'os';
 @Injectable()
 export class MediasoupService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MediasoupService.name);
-  private workers: Worker[] = [];
-  private routers = new Map<string, Router>(); // sessionId -> Router
-  private transports = new Map<string, { transport: Transport; router: Router }>(); // transportId -> { transport, router }
-  private producers = new Map<string, { producer: Producer; router: Router }>(); // producerId -> { producer, router }
-  private nextWorkerIndex = 0;
-  private readonly numWorkers = 1; // Start with 1 worker, scale as needed
+
+  /**
+   * Single mediasoup worker reused across all streams.
+   */
+  private worker: Worker | null = null;
+
+  /**
+   * Single router reused across all sessions/streams (SFU model).
+   */
+  private router: Router | null = null;
+
+  /**
+   * Transports keyed by transportId and tagged with sessionId for cleanup.
+   */
+  private transports = new Map<string, { transport: Transport; sessionId: string }>();
+
+  /**
+   * Producers keyed by producerId and tagged with sessionId for cleanup and discovery.
+   */
+  private producers = new Map<string, { producer: Producer; sessionId: string }>();
+
   private announcedIp: string | undefined;
 
   async onModuleInit() {
-    await this.createWorkers();
+    // Create a single worker and router on bootstrap.
+    await this.createWorkerInstance();
     this.announcedIp = await this.detectAnnouncedIp();
+    await this.createRouter();
   }
 
   private async detectAnnouncedIp(): Promise<string | undefined> {
@@ -62,62 +79,64 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    // Cleanup
-    for (const router of this.routers.values()) {
-      router.close();
-    }
-    this.routers.clear();
-
+    // Cleanup all mediasoup resources on shutdown
     for (const transportData of this.transports.values()) {
       transportData.transport.close();
     }
     this.transports.clear();
 
+    for (const producerData of this.producers.values()) {
+      producerData.producer.close();
+    }
     this.producers.clear();
 
-    for (const worker of this.workers) {
-      worker.close();
+    if (this.router) {
+      this.router.close();
+      this.router = null;
     }
-    this.workers = [];
-  }
 
-  private async createWorkers() {
-    const { numWorkers } = process.env;
-    const workerCount = numWorkers ? parseInt(numWorkers, 10) : this.numWorkers;
-
-    for (let i = 0; i < workerCount; i++) {
-      const worker = await createWorker({
-        logLevel: 'warn',
-        logTags: ['info', 'ice', 'dtls', 'rtp', 'srtp', 'rtcp'],
-        rtcMinPort: 40000,
-        rtcMaxPort: 49999,
-      });
-
-      worker.on('died', () => {
-        this.logger.error('Mediasoup worker died, exiting in 2 seconds...');
-        setTimeout(() => process.exit(1), 2000);
-      });
-
-      this.workers.push(worker);
-      this.logger.log(`Mediasoup worker ${i} created [pid:${worker.pid}]`);
+    if (this.worker) {
+      this.worker.close();
+      this.worker = null;
     }
   }
 
-  private getWorker(): Worker {
-    if (this.workers.length === 0) {
-      throw new Error('No mediasoup workers available');
+  /**
+   * Create the single mediasoup worker instance (idempotent).
+   */
+  private async createWorkerInstance(): Promise<Worker> {
+    if (this.worker) {
+      return this.worker;
     }
-    const worker = this.workers[this.nextWorkerIndex];
-    this.nextWorkerIndex = (this.nextWorkerIndex + 1) % this.workers.length;
+
+    const worker = await createWorker({
+      logLevel: 'warn',
+      logTags: ['info', 'ice', 'dtls', 'rtp', 'srtp', 'rtcp'],
+      rtcMinPort: 40000,
+      rtcMaxPort: 49999,
+    });
+
+    worker.on('died', () => {
+      this.logger.error('Mediasoup worker died, exiting in 2 seconds...');
+      setTimeout(() => process.exit(1), 2000);
+    });
+
+    this.worker = worker;
+    this.logger.log(`Mediasoup worker created [pid:${worker.pid}]`);
+
     return worker;
   }
 
-  async createRouter(sessionId: string): Promise<Router> {
-    if (this.routers.has(sessionId)) {
-      return this.routers.get(sessionId)!;
+  /**
+   * Create or return the single router instance.
+   * All sessions/streams share the same router (SFU model).
+   */
+  async createRouter(): Promise<Router> {
+    if (this.router) {
+      return this.router;
     }
 
-    const worker = this.getWorker();
+    const worker = await this.createWorkerInstance();
     const router = await worker.createRouter({
       mediaCodecs: [
         {
@@ -157,8 +176,8 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
       ],
     });
 
-    this.routers.set(sessionId, router);
-    this.logger.log(`Router created for session ${sessionId}`);
+    this.router = router;
+    this.logger.log('Mediasoup router created (shared across sessions)');
 
     return router;
   }
@@ -166,7 +185,9 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
   async getRouterRtpCapabilities(
     sessionId: string,
   ): Promise<RtpCapabilities> {
-    const router = await this.createRouter(sessionId);
+    // sessionId is accepted for API compatibility but ignored internally,
+    // since a single router is reused across all sessions.
+    const router = await this.createRouter();
     return router.rtpCapabilities;
   }
 
@@ -182,8 +203,7 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
       dtlsParameters: DtlsParameters;
     };
   }> {
-    const router = await this.createRouter(sessionId);
-    const worker = router.appData.worker as Worker;
+    const router = await this.createRouter();
 
     const listenIp = process.env.MEDIASOUP_LISTEN_IP || '127.0.0.1';
     const announcedIp = this.announcedIp;
@@ -211,7 +231,8 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Transport closed and removed: ${transport.id}`);
     });
 
-    this.transports.set(transport.id, { transport, router });
+    // Tag transport with sessionId so we can clean it up when session ends.
+    this.transports.set(transport.id, { transport, sessionId });
 
     return {
       transport,
@@ -235,6 +256,10 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
     await transportData.transport.connect({ dtlsParameters });
   }
 
+  /**
+   * Create a producer on the shared router.
+   * Enforces a single VP8 video codec and removes simulcast/SVC encodings.
+   */
   async createProducer(
     sessionId: string,
     transportId: string,
@@ -245,9 +270,12 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`Transport not found: ${transportId}`);
     }
 
-    const producer = await transportData.transport.produce({ 
-      kind: rtpParameters.kind, 
-      rtpParameters 
+    const sanitizedRtpParameters = this.sanitizeRtpParameters(rtpParameters);
+
+    const producer = await transportData.transport.produce({
+      // rtpParameters.kind may be set by the client; fall back to 'video'
+      kind: sanitizedRtpParameters.kind || 'video',
+      rtpParameters: sanitizedRtpParameters,
     });
 
     producer.on('transportclose', () => {
@@ -255,7 +283,7 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Producer closed: ${producer.id}`);
     });
 
-    this.producers.set(producer.id, { producer, router: transportData.router });
+    this.producers.set(producer.id, { producer, sessionId });
     this.logger.log(`Producer created: ${producer.id} for session ${sessionId}`);
 
     return producer;
@@ -280,7 +308,7 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`Producer not found: ${producerId}`);
     }
 
-    const router = await this.createRouter(sessionId);
+    const router = await this.createRouter();
     if (!router.canConsume({ producerId, rtpCapabilities })) {
       throw new Error('Cannot consume producer');
     }
@@ -303,44 +331,60 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getProducers(sessionId: string): Promise<Producer[]> {
-    const router = this.routers.get(sessionId);
-    if (!router) {
-      return [];
-    }
-
-    // Get all producers that belong to this router
-    const routerProducers: Producer[] = [];
-    for (const producerData of this.producers.values()) {
-      if (producerData.router === router) {
-        routerProducers.push(producerData.producer);
+    // Filter producers by sessionId while still sharing the same router.
+    const sessionProducers: Producer[] = [];
+    for (const data of this.producers.values()) {
+      if (data.sessionId === sessionId) {
+        sessionProducers.push(data.producer);
       }
     }
-    return routerProducers;
+    return sessionProducers;
   }
 
   async closeSession(sessionId: string): Promise<void> {
-    const router = this.routers.get(sessionId);
-    if (router) {
-      // Close all transports in this router
-      for (const [transportId, transportData] of this.transports.entries()) {
-        if (transportData.router === router) {
-          transportData.transport.close();
-          this.transports.delete(transportId);
-        }
+    // Close all transports and producers associated with the given sessionId,
+    // but keep the shared router/worker alive for other sessions.
+    for (const [transportId, transportData] of this.transports.entries()) {
+      if (transportData.sessionId === sessionId) {
+        transportData.transport.close();
+        this.transports.delete(transportId);
       }
-
-      // Remove all producers for this router
-      for (const [producerId, producerData] of this.producers.entries()) {
-        if (producerData.router === router) {
-          producerData.producer.close();
-          this.producers.delete(producerId);
-        }
-      }
-
-      router.close();
-      this.routers.delete(sessionId);
-      this.logger.log(`Session ${sessionId} closed`);
     }
+
+    for (const [producerId, producerData] of this.producers.entries()) {
+      if (producerData.sessionId === sessionId) {
+        producerData.producer.close();
+        this.producers.delete(producerId);
+      }
+    }
+
+    this.logger.log(`Session ${sessionId} closed (resources cleaned up)`);
+  }
+
+  /**
+   * Sanitize incoming RTP parameters to ensure a single VP8 video codec and
+   * remove simulcast/SVC encodings and unnecessary RTP parameters.
+   */
+  private sanitizeRtpParameters(rtpParameters: any): any {
+    if (!rtpParameters || typeof rtpParameters !== 'object') {
+      return rtpParameters;
+    }
+
+    const cloned: any = { ...rtpParameters };
+
+    if (Array.isArray(cloned.codecs)) {
+      cloned.codecs = cloned.codecs.filter(
+        (codec: any) =>
+          codec &&
+          typeof codec.mimeType === 'string' &&
+          codec.mimeType.toLowerCase() === 'video/vp8',
+      );
+    }
+
+    if (Array.isArray(cloned.encodings)) {
+      cloned.encodings = cloned.encodings.length > 0 ? [cloned.encodings[0]] : [];
+    }
+
+    return cloned;
   }
 }
-
