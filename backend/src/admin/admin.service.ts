@@ -125,60 +125,149 @@ export class AdminService {
   }
 
   async getAttendanceReport(query: ReportRangeDto): Promise<AttendanceReport> {
-    const { sessionIds, sessionMap } = await this.collectSessions(query);
-    if (!sessionIds.length) {
+    /**
+     * Optimize attendance report by aggregating directly on the Session
+     * collection with a $lookup into Attendance, instead of:
+     *   1) fetching sessions,
+     *   2) fetching all attendance records,
+     *   3) grouping in memory.
+     *
+     * The response shape remains identical:
+     * {
+     *   summary: { present, late, total },
+     *   items: [{ sessionId, labId, present, late, total }]
+     * }
+     */
+
+    const sessionFilter: Record<string, unknown> = {};
+
+    if (query.labId) {
+      sessionFilter.labId = new Types.ObjectId(query.labId);
+    }
+
+    if (query.from || query.to) {
+      sessionFilter.startTime = {};
+      if (query.from) {
+        (sessionFilter.startTime as Record<string, Date>).$gte = new Date(
+          query.from,
+        );
+      }
+      if (query.to) {
+        (sessionFilter.startTime as Record<string, Date>).$lte = new Date(
+          query.to,
+        );
+      }
+    }
+
+    const [result] = await this.sessionModel
+      .aggregate<{
+        items: {
+          sessionId: Types.ObjectId;
+          labId: Types.ObjectId;
+          present: number;
+          late: number;
+          total: number;
+        }[];
+        summary: {
+          present: number;
+          late: number;
+          total: number;
+        }[];
+      }>([
+        { $match: sessionFilter },
+        {
+          $lookup: {
+            from: this.attendanceModel.collection.name,
+            localField: '_id',
+            foreignField: 'sessionId',
+            as: 'attendance',
+          },
+        },
+        { $unwind: { path: '$attendance', preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: '$_id',
+            labId: { $first: '$labId' },
+            present: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$attendance.status', AttendanceStatus.Present] },
+                  1,
+                  0,
+                ],
+              },
+            },
+            late: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$attendance.status', AttendanceStatus.Late] },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            sessionId: '$_id',
+            labId: 1,
+            present: 1,
+            late: 1,
+            total: { $add: ['$present', '$late'] },
+          },
+        },
+        {
+          $facet: {
+            items: [{ $sort: { sessionId: 1 } }],
+            summary: [
+              {
+                $group: {
+                  _id: null,
+                  present: { $sum: '$present' },
+                  late: { $sum: '$late' },
+                  total: { $sum: '$total' },
+                },
+              },
+            ],
+          },
+        },
+      ])
+      .exec();
+
+    // No matching sessions -> preserve original behavior
+    if (!result || !result.items.length) {
       return {
         summary: { present: 0, late: 0, total: 0 },
         items: [],
       };
     }
 
-    const attendanceRecords = await this.attendanceModel
-      .find({ sessionId: { $in: sessionIds } })
-      .exec();
+    const items: AttendanceReportItem[] = result.items.map((item) => ({
+      sessionId:
+        item.sessionId instanceof Types.ObjectId
+          ? item.sessionId.toHexString()
+          : String(item.sessionId),
+      labId:
+        item.labId instanceof Types.ObjectId
+          ? item.labId.toHexString()
+          : String(item.labId),
+      present: item.present ?? 0,
+      late: item.late ?? 0,
+      total: item.total ?? 0,
+    }));
 
-    const bySession = new Map<string, AttendanceReportItem>();
-    let totalPresent = 0;
-    let totalLate = 0;
-
-    for (const record of attendanceRecords) {
-      const sessionId = record.sessionId.toString();
-      const sessionInfo = sessionMap.get(sessionId);
-      if (!sessionInfo) {
-        continue;
-      }
-
-      let item = bySession.get(sessionId);
-      if (!item) {
-        item = {
-          sessionId,
-          labId: sessionInfo.labId,
-          present: 0,
-          late: 0,
-          total: 0,
-        };
-        bySession.set(sessionId, item);
-      }
-
-      if (record.status === AttendanceStatus.Present) {
-        item.present += 1;
-        totalPresent += 1;
-      } else if (record.status === AttendanceStatus.Late) {
-        item.late += 1;
-        totalLate += 1;
-      }
-      item.total += 1;
-    }
-
-    const items = Array.from(bySession.values()).sort((a, b) =>
-      a.sessionId.localeCompare(b.sessionId),
-    );
+    const summaryDoc = result.summary[0];
+    const present = summaryDoc?.present ?? 0;
+    const late = summaryDoc?.late ?? 0;
+    const total = summaryDoc?.total ?? present + late;
 
     return {
       summary: {
-        present: totalPresent,
-        late: totalLate,
-        total: totalPresent + totalLate,
+        present,
+        late,
+        total,
       },
       items,
     };
@@ -205,46 +294,99 @@ export class AdminService {
       }
     }
 
-    const grades = await this.gradeModel.find(gradeFilter).exec();
-    if (!grades.length) {
+    /**
+     * Optimize grade report aggregation by using a single pipeline with
+     * per-lab grouping and an overall summary, instead of fetching all
+     * grades and aggregating in memory.
+     */
+
+    const [result] = await this.gradeModel
+      .aggregate<{
+        items: { labId: Types.ObjectId; totalGrades: number; averageScore: number | null }[];
+        summary: { totalGrades: number; averageScore: number | null }[];
+      }>([
+        { $match: gradeFilter },
+        {
+          $group: {
+            _id: '$labId',
+            totalGrades: { $sum: 1 },
+            sumScore: { $sum: '$score' },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            labId: '$_id',
+            totalGrades: 1,
+            averageScore: {
+              $cond: [
+                { $gt: ['$totalGrades', 0] },
+                { $divide: ['$sumScore', '$totalGrades'] },
+                null,
+              ],
+            },
+          },
+        },
+        {
+          $facet: {
+            items: [{ $sort: { labId: 1 } }],
+            summary: [
+              {
+                $group: {
+                  _id: null,
+                  totalGrades: { $sum: '$totalGrades' },
+                  sumScore: { $sum: { $multiply: ['$averageScore', '$totalGrades'] } },
+                },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  totalGrades: 1,
+                  averageScore: {
+                    $cond: [
+                      { $gt: ['$totalGrades', 0] },
+                      { $divide: ['$sumScore', '$totalGrades'] },
+                      null,
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        },
+      ])
+      .exec();
+
+    if (!result || !result.items.length) {
       return {
         summary: { totalGrades: 0, averageScore: null },
         items: [],
       };
     }
 
-    const byLab = new Map<string, { total: number; sum: number }>();
-    let total = 0;
-    let sum = 0;
+    const items: GradeReportItem[] = result.items.map((item) => ({
+      labId:
+        item.labId instanceof Types.ObjectId
+          ? item.labId.toHexString()
+          : String(item.labId),
+      totalGrades: item.totalGrades ?? 0,
+      // Preserve original rounding behavior to 2 decimal places
+      averageScore:
+        item.averageScore != null
+          ? Math.round(item.averageScore * 100) / 100
+          : null,
+    }));
 
-    for (const grade of grades) {
-      const labId = grade.labId.toString();
-      let entry = byLab.get(labId);
-      if (!entry) {
-        entry = { total: 0, sum: 0 };
-        byLab.set(labId, entry);
-      }
-      entry.total += 1;
-      entry.sum += grade.score;
-      total += 1;
-      sum += grade.score;
-    }
-
-    const items: GradeReportItem[] = Array.from(byLab.entries()).map(
-      ([labId, entry]) => ({
-        labId,
-        totalGrades: entry.total,
-        averageScore:
-          entry.total > 0
-            ? Math.round((entry.sum / entry.total) * 100) / 100
-            : null,
-      }),
-    );
+    const summaryDoc = result.summary[0];
+    const totalGrades = summaryDoc?.totalGrades ?? 0;
+    const summaryAvg =
+      summaryDoc?.averageScore != null ? summaryDoc.averageScore : null;
 
     return {
       summary: {
-        totalGrades: total,
-        averageScore: total > 0 ? Math.round((sum / total) * 100) / 100 : null,
+        totalGrades,
+        averageScore:
+          summaryAvg != null ? Math.round(summaryAvg * 100) / 100 : null,
       },
       items,
     };
@@ -268,12 +410,47 @@ export class AdminService {
     archived: number;
     suspended: number;
   }> {
-    const [total, archived, suspended] = await Promise.all([
-      this.labModel.countDocuments().exec(),
-      this.labModel.countDocuments({ isArchived: true }).exec(),
-      this.labModel.countDocuments({ isSuspended: true }).exec(),
-    ]);
-    return { total, archived, suspended };
+    /**
+     * Use a single aggregation instead of three separate countDocuments calls.
+     */
+    const [result] = await this.labModel
+      .aggregate<{
+        total: number;
+        archived: number;
+        suspended: number;
+      }>([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            archived: {
+              $sum: {
+                $cond: [{ $eq: ['$isArchived', true] }, 1, 0],
+              },
+            },
+            suspended: {
+              $sum: {
+                $cond: [{ $eq: ['$isSuspended', true] }, 1, 0],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            total: 1,
+            archived: 1,
+            suspended: 1,
+          },
+        },
+      ])
+      .exec();
+
+    return {
+      total: result?.total ?? 0,
+      archived: result?.archived ?? 0,
+      suspended: result?.suspended ?? 0,
+    };
   }
 
   private async computeUserStats(): Promise<{
@@ -281,21 +458,51 @@ export class AdminService {
     byRole: Record<UserRole, number>;
     suspended: number;
   }> {
-    const [total, students, teachers, admins, suspended] = await Promise.all([
-      this.userModel.countDocuments().exec(),
-      this.userModel.countDocuments({ role: UserRole.Student }).exec(),
-      this.userModel.countDocuments({ role: UserRole.Teacher }).exec(),
-      this.userModel.countDocuments({ role: UserRole.Admin }).exec(),
-      this.userModel.countDocuments({ isSuspended: true }).exec(),
-    ]);
+    /**
+     * Single aggregation to compute:
+     * - total users
+     * - counts per role
+     * - total suspended users
+     */
+    const roleCounts = await this.userModel
+      .aggregate<{
+        _id: { role: UserRole; isSuspended: boolean };
+        count: number;
+      }>([
+        {
+          $group: {
+            _id: { role: '$role', isSuspended: '$isSuspended' },
+            count: { $sum: 1 },
+          },
+        },
+      ])
+      .exec();
+
+    let total = 0;
+    const byRole: Record<UserRole, number> = {
+      [UserRole.Student]: 0,
+      [UserRole.Teacher]: 0,
+      [UserRole.Admin]: 0,
+    };
+    let suspended = 0;
+
+    for (const entry of roleCounts) {
+      const { role, isSuspended } = entry._id;
+      const count = entry.count ?? 0;
+      total += count;
+
+      if (role in byRole) {
+        byRole[role] += count;
+      }
+
+      if (isSuspended) {
+        suspended += count;
+      }
+    }
 
     return {
       total,
-      byRole: {
-        [UserRole.Student]: students,
-        [UserRole.Teacher]: teachers,
-        [UserRole.Admin]: admins,
-      },
+      byRole,
       suspended,
     };
   }
@@ -322,20 +529,36 @@ export class AdminService {
     fromDate.setDate(fromDate.getDate() - (rangeDays - 1));
     fromDate.setHours(0, 0, 0, 0);
 
-    const [present, late] = await Promise.all([
-      this.attendanceModel
-        .countDocuments({
-          scannedAt: { $gte: fromDate },
-          status: AttendanceStatus.Present,
-        })
-        .exec(),
-      this.attendanceModel
-        .countDocuments({
-          scannedAt: { $gte: fromDate },
-          status: AttendanceStatus.Late,
-        })
-        .exec(),
-    ]);
+    const results = await this.attendanceModel
+      .aggregate<{
+        _id: AttendanceStatus;
+        count: number;
+      }>([
+        {
+          $match: {
+            scannedAt: { $gte: fromDate },
+            status: { $in: [AttendanceStatus.Present, AttendanceStatus.Late] },
+          },
+        },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+          },
+        },
+      ])
+      .exec();
+
+    let present = 0;
+    let late = 0;
+
+    for (const entry of results) {
+      if (entry._id === AttendanceStatus.Present) {
+        present = entry.count ?? 0;
+      } else if (entry._id === AttendanceStatus.Late) {
+        late = entry.count ?? 0;
+      }
+    }
 
     return { present, late, rangeDays };
   }
@@ -344,59 +567,42 @@ export class AdminService {
     total: number;
     pending: number;
   }> {
-    const [total, pending] = await Promise.all([
-      this.complaintModel.countDocuments().exec(),
-      this.complaintModel
-        .countDocuments({ status: ComplaintStatus.New })
-        .exec(),
-    ]);
-    return { total, pending };
-  }
-
-  private async collectSessions(query: ReportRangeDto): Promise<{
-    sessionIds: Types.ObjectId[];
-    sessionMap: Map<string, { labId: string }>;
-  }> {
-    const sessionFilter: Record<string, unknown> = {};
-
-    if (query.labId) {
-      sessionFilter.labId = new Types.ObjectId(query.labId);
-    }
-
-    if (query.from || query.to) {
-      sessionFilter.startTime = {};
-      if (query.from) {
-        (sessionFilter.startTime as Record<string, Date>).$gte = new Date(
-          query.from,
-        );
-      }
-      if (query.to) {
-        (sessionFilter.startTime as Record<string, Date>).$lte = new Date(
-          query.to,
-        );
-      }
-    }
-
-    const sessions = await this.sessionModel
-      .find(sessionFilter)
-      .select({ _id: 1, labId: 1 })
+    /**
+     * Aggregate complaint stats in a single pass.
+     */
+    const [result] = await this.complaintModel
+      .aggregate<{
+        total: number;
+        pending: number;
+      }>([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            pending: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$status', ComplaintStatus.New] },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            total: 1,
+            pending: 1,
+          },
+        },
+      ])
       .exec();
 
-    const sessionIds = sessions.map((session) => session._id as Types.ObjectId);
-    const map = new Map<string, { labId: string }>();
-    for (const session of sessions) {
-      const sessionId =
-        session._id instanceof Types.ObjectId
-          ? session._id.toHexString()
-          : String(session._id);
-      const labId =
-        session.labId instanceof Types.ObjectId
-          ? session.labId.toHexString()
-          : String(session.labId);
-      map.set(sessionId, {
-        labId,
-      });
-    }
-    return { sessionIds, sessionMap: map };
+    return {
+      total: result?.total ?? 0,
+      pending: result?.pending ?? 0,
+    };
   }
 }

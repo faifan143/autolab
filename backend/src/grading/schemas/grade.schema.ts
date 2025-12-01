@@ -32,3 +32,5 @@ export class Grade {
 export const GradeSchema = SchemaFactory.createForClass(Grade);
 
 GradeSchema.index({ studentId: 1, labId: 1, category: 1 }, { unique: true });
+// Optimize grade reports filtered by labId and updatedAt
+GradeSchema.index({ labId: 1, updatedAt: -1 });

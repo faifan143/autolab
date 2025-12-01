@@ -38,3 +38,5 @@ export class Attendance {
 export const AttendanceSchema = SchemaFactory.createForClass(Attendance);
 
 AttendanceSchema.index({ sessionId: 1, studentId: 1 }, { unique: true });
+// Optimize reports filtering by scannedAt and status (computeAttendanceStats)
+AttendanceSchema.index({ scannedAt: 1, status: 1 });
