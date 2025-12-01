@@ -32,17 +32,16 @@ class SettingsScreen extends StatelessWidget {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('Confirm logout'),
-                  content: const Text(
-                      'Are you sure you want to log out of AutoLab Teacher?'),
+                  title: Text('settings.logout.title'.tr),
+                  content: Text('settings.logout.message'.tr),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(false),
-                      child: const Text('Cancel'),
+                      child: Text('settings.logout.cancel'.tr),
                     ),
                     ElevatedButton(
                       onPressed: () => Navigator.of(ctx).pop(true),
-                      child: const Text('Logout'),
+                      child: Text('settings.logout.confirm'.tr),
                     ),
                   ],
                 ),

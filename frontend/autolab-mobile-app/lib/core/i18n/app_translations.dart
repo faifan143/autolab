@@ -125,6 +125,12 @@ class AppTranslations extends Translations {
           // Labs (detail placeholders)
           'labs.detail.title': 'Lab Details',
           'labs.detail.placeholder': 'Lab detail for ID: @id',
+          // Settings - logout dialog
+          'settings.logout.title': 'Confirm logout',
+          'settings.logout.message':
+              'Are you sure you want to log out of AutoLab Teacher?',
+          'settings.logout.cancel': 'Cancel',
+          'settings.logout.confirm': 'Logout',
         },
         'ar': {
           'app.title': 'أوتولاب للمدرس',
@@ -250,6 +256,12 @@ class AppTranslations extends Translations {
           // Labs (detail placeholders)
           'labs.detail.title': 'تفاصيل المختبر',
           'labs.detail.placeholder': 'تفاصيل المختبر برقم: @id',
+          // Settings - logout dialog
+          'settings.logout.title': 'تأكيد تسجيل الخروج',
+          'settings.logout.message':
+              'هل أنت متأكد أنك تريد تسجيل الخروج من تطبيق أوتولاب للمدرس؟',
+          'settings.logout.cancel': 'إلغاء',
+          'settings.logout.confirm': 'تسجيل الخروج',
         },
       };
 }
