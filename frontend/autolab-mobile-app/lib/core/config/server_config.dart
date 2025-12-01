@@ -11,12 +11,18 @@ class ServerConfig {
 
   Future<void> setServerIp(String ip) async {
     await _box.write(_key, ip);
+    // Debug log to terminal when IP changes.
+    // ignore: avoid_print
+    print('🔧 ServerConfig: saved server IP = $ip');
   }
 
   /// Returns "http://<IP>:3000" for REST.
   String get apiBaseUrl {
     final ip = serverIp;
-    return ip == null ? 'http://127.0.0.1:3000/' : 'http://$ip:3000/';
+    final url = ip == null ? 'http://127.0.0.1:3000/' : 'http://$ip:3000/';
+    // ignore: avoid_print
+    print('🔧 ServerConfig.apiBaseUrl = $url');
+    return url;
   }
 
   /// Returns "ws://<IP>:3000" for WebSocket.

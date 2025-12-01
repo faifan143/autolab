@@ -10,6 +10,7 @@ class AuthService {
   final StorageService _storage = StorageService();
 
   Future<AuthResponseModel> login(String email, String password) async {
+    print('🔑 LOGIN body = {email: $email, password: ***}');
     final response = await _apiService.post(
       ApiConstants.login,
       data: {
@@ -18,6 +19,7 @@ class AuthService {
       },
     );
 
+    print('🔑 LOGIN raw response = ${response.data}');
     final authResponse = AuthResponseModel.fromJson(response.data);
     
     // Save tokens and user
@@ -34,6 +36,7 @@ class AuthService {
     required String password,
     String? role,
   }) async {
+    print('🔑 REGISTER body = {name: $name, email: $email, password: ***, role: $role}');
     final response = await _apiService.post(
       ApiConstants.register,
       data: {
@@ -44,6 +47,7 @@ class AuthService {
       },
     );
 
+    print('🔑 REGISTER raw response = ${response.data}');
     final authResponse = AuthResponseModel.fromJson(response.data);
     
     // Save tokens and user

@@ -42,24 +42,38 @@ class ApiService {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // Add auth token to requests
           final token = await _storage.getAccessToken();
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
-          _logger.d('Request: ${options.method} ${options.path}');
+
+          _logger.i('┌───── REQUEST ───────────────────────────────');
+          _logger.i('URI     : ${options.uri}');
+          _logger.i('METHOD  : ${options.method}');
+          _logger.i('HEADERS : ${options.headers}');
+          _logger.i('DATA    : ${options.data}');
+          _logger.i('└────────────────────────────────────────────');
+
           return handler.next(options);
         },
         onResponse: (response, handler) {
-          _logger.d(
-            'Response: ${response.statusCode} ${response.requestOptions.path}',
-          );
+          _logger.i('┌───── RESPONSE ──────────────────────────────');
+          _logger.i('URI     : ${response.requestOptions.uri}');
+          _logger.i('STATUS  : ${response.statusCode}');
+          _logger.i('DATA    : ${response.data}');
+          _logger.i('└─────────────────────────────────────────────');
           return handler.next(response);
         },
         onError: (error, handler) async {
-          _logger.e(
-            'Error: ${error.response?.statusCode} ${error.requestOptions.path}',
-          );
+          _logger.e('┌───── ERROR ─────────────────────────────────');
+          _logger.e('TYPE    : ${error.type}');
+          _logger.e('MESSAGE : ${error.message}');
+          _logger.e('INNER   : ${error.error}');
+          _logger.e('URI     : ${error.requestOptions.uri}');
+          _logger.e('DATA    : ${error.requestOptions.data}');
+          _logger.e('STATUS  : ${error.response?.statusCode}');
+          _logger.e('BODY    : ${error.response?.data}');
+          _logger.e('└────────────────────────────────────────────');
 
           final statusCode = error.response?.statusCode;
           final requestOptions = error.requestOptions;
