@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 import '../../../core/controllers/theme_controller.dart';
 import '../../../core/controllers/locale_controller.dart';
+import '../../../core/providers/auth_provider.dart';
+import '../../../core/routes/app_routes.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -12,6 +15,8 @@ class SettingsScreen extends StatelessWidget {
     final localeCtrl = Get.find<LocaleController>();
     final theme = Theme.of(context);
     final color = theme.colorScheme;
+    final auth = Provider.of<AuthProvider>(context);
+    final user = auth.user;
 
     return Scaffold(
       appBar: AppBar(
@@ -19,6 +24,39 @@ class SettingsScreen extends StatelessWidget {
       ),
       body: ListView(
         children: [
+          const SizedBox(height: 16),
+          _SettingsProfileHeader(
+            name: user?.name ?? 'Teacher',
+            email: user?.email ?? '',
+            onLogout: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Confirm logout'),
+                  content: const Text(
+                      'Are you sure you want to log out of AutoLab Teacher?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true) {
+                await auth.logout();
+                if (context.mounted) {
+                  Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+                }
+              }
+            },
+          ),
+          const Divider(height: 32),
           _SectionHeader(title: 'theme'.tr),
           Obx(() {
             final mode = themeCtrl.themeMode.value;
@@ -87,6 +125,85 @@ class _SectionHeader extends StatelessWidget {
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
             ),
+      ),
+    );
+  }
+}
+
+class _SettingsProfileHeader extends StatelessWidget {
+  final String name;
+  final String email;
+  final VoidCallback onLogout;
+
+  const _SettingsProfileHeader({
+    required this.name,
+    required this.email,
+    required this.onLogout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme;
+    final initials = name.isNotEmpty ? name.trim()[0].toUpperCase() : 'T';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [color.primary, color.secondary],
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  initials,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: color.onPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    email,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: color.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Logout',
+              onPressed: onLogout,
+              icon: const Icon(Icons.logout),
+            ),
+          ],
+        ),
       ),
     );
   }

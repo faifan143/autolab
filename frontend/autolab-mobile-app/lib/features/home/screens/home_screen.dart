@@ -55,22 +55,6 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              sliver: SliverToBoxAdapter(
-                child: _ProfileHeader(
-                  name: user?.name ?? 'Teacher',
-                  email: user?.email ?? '',
-                  onLogout: () async {
-                    await auth.logout();
-                    if (context.mounted) {
-                      Navigator.of(context)
-                          .pushReplacementNamed(AppRoutes.login);
-                    }
-                  },
-                ),
-              ),
-            ),
-            SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               sliver: SliverToBoxAdapter(
                 child: _QuickStatsRow(),
