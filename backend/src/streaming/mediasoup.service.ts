@@ -12,6 +12,7 @@ import {
 } from 'mediasoup/types';
 import { createWorker } from 'mediasoup';
 import { networkInterfaces } from 'os';
+import type { MediasoupRoom, MediasoupRoomId } from './mediasoup.types';
 
 @Injectable()
 export class MediasoupService implements OnModuleInit, OnModuleDestroy {
@@ -36,6 +37,13 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
    * Producers keyed by producerId and tagged with sessionId for cleanup and discovery.
    */
   private producers = new Map<string, { producer: Producer; sessionId: string }>();
+
+  /**
+   * Optional room map for future room-based signaling (not yet wired
+   * into existing streaming flows). This provides a clean API for
+   * HTTP/WebSocket signaling around logical "rooms".
+   */
+  private rooms = new Map<MediasoupRoomId, MediasoupRoom>();
 
   private announcedIp: string | undefined;
 
@@ -180,6 +188,83 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
     this.logger.log('Mediasoup router created (shared across sessions)');
 
     return router;
+  }
+
+  /**
+   * Create a mediasoup room using the shared router and in-memory
+   * maps for transports/producers/consumers. This is intentionally
+   * minimal and does not persist to any external storage.
+   */
+  async createRoom(roomId: MediasoupRoomId): Promise<MediasoupRoom> {
+    if (this.rooms.has(roomId)) {
+      return this.rooms.get(roomId)!;
+    }
+
+    const router = await this.createRouter();
+    const room: MediasoupRoom = {
+      id: roomId,
+      router,
+      transports: new Map<string, Transport>(),
+      producers: new Map<string, Producer>(),
+      consumers: new Map<string, any>(),
+    };
+
+    this.rooms.set(roomId, room);
+    this.logger.log(`Mediasoup room created: ${roomId}`);
+
+    return room;
+  }
+
+  /**
+   * Get an existing room or create a new one if missing.
+   */
+  async getOrCreateRoom(roomId: MediasoupRoomId): Promise<MediasoupRoom> {
+    if (this.rooms.has(roomId)) {
+      return this.rooms.get(roomId)!;
+    }
+    return this.createRoom(roomId);
+  }
+
+  /**
+   * Create a WebRTC transport for a given room. This is a convenience
+   * wrapper around the existing transport creation logic which uses a
+   * single shared router.
+   */
+  async createWebRtcTransportForRoom(
+    roomId: MediasoupRoomId,
+    direction: 'send' | 'recv',
+    userId: string,
+  ): Promise<{
+    transport: Transport;
+    params: {
+      id: string;
+      iceParameters: IceParameters;
+      iceCandidates: IceCandidate[];
+      dtlsParameters: DtlsParameters;
+    };
+  }> {
+    const room = await this.getOrCreateRoom(roomId);
+    const { transport, params } = await this.createWebRtcTransport(
+      roomId,
+      direction === 'send' ? 'producer' : 'consumer',
+    );
+
+    room.transports.set(params.id, transport);
+
+    return { transport, params };
+  }
+
+  /**
+   * Associate an existing producer with a room. Existing streaming flows
+   * still use the sessionId-based maps; this is purely additive for
+   * room-based APIs.
+   */
+  async addProducerToRoom(
+    roomId: MediasoupRoomId,
+    producer: Producer,
+  ): Promise<void> {
+    const room = await this.getOrCreateRoom(roomId);
+    room.producers.set(producer.id, producer);
   }
 
   async getRouterRtpCapabilities(

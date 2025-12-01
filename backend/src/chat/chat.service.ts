@@ -13,6 +13,7 @@ import { QueryMessagesDto } from './dto/query-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { UserRole } from '../users/schemas/user.schema';
 import { Lab, LabDocument } from '../labs/schemas/lab.schema';
+import { AttendanceGateway } from '../attendance/attendance.gateway';
 
 export interface ChatMessageResponse {
   id: string;
@@ -34,6 +35,7 @@ export class ChatService {
     private readonly messageModel: Model<ChatMessageDocument>,
     @InjectModel(Lab.name)
     private readonly labModel: Model<LabDocument>,
+    private readonly attendanceGateway: AttendanceGateway,
   ) {}
 
   async getMessages(
@@ -86,7 +88,12 @@ export class ChatService {
 
     await message.save();
 
-    return this.toResponse(message);
+    const response = this.toResponse(message);
+
+    // Emit real-time event for newly created chat message.
+    this.attendanceGateway.emitChatMessageCreated(response);
+
+    return response;
   }
 
   private toResponse(message: ChatMessageDocument): ChatMessageResponse {

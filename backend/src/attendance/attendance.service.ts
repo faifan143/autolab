@@ -109,6 +109,7 @@ export class AttendanceService {
 
     const student = await this.usersService.findById(studentId);
 
+    // Emit per-scan event (existing behavior)
     this.attendanceGateway.emitAttendanceUpdate({
       sessionId: session.id,
       labId: session.labId.toString(),
@@ -117,6 +118,55 @@ export class AttendanceService {
       status,
       scannedAt: now.toISOString(),
     });
+
+    // Emit aggregated attendance summary for the session
+    const summary = await this.attendanceModel
+      .aggregate<{
+        _id: Types.ObjectId;
+        present: number;
+        late: number;
+      }>([
+        { $match: { sessionId: sessionObjectId } },
+        {
+          $group: {
+            _id: '$sessionId',
+            present: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$status', AttendanceStatus.Present] },
+                  1,
+                  0,
+                ],
+              },
+            },
+            late: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$status', AttendanceStatus.Late] },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ])
+      .exec();
+
+    const s = summary[0];
+    if (s) {
+      const present = s.present ?? 0;
+      const late = s.late ?? 0;
+      const total = present + late;
+
+      this.attendanceGateway.emitAttendanceSummary({
+        sessionId: session.id,
+        labId: session.labId.toString(),
+        present,
+        late,
+        total,
+      });
+    }
 
     return attendance;
   }

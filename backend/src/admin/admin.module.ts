@@ -14,6 +14,7 @@ import {
   Complaint,
   ComplaintSchema,
 } from '../complaints/schemas/complaint.schema';
+import { AttendanceModule } from '../attendance/attendance.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import {
       { name: Grade.name, schema: GradeSchema },
       { name: Complaint.name, schema: ComplaintSchema },
     ]),
+    AttendanceModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

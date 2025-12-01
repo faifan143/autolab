@@ -21,6 +21,6 @@ import { Attendance, AttendanceSchema } from './schemas/attendance.schema';
   ],
   controllers: [AttendanceController],
   providers: [AttendanceService, AttendanceGateway],
-  exports: [AttendanceService],
+  exports: [AttendanceService, AttendanceGateway],
 })
 export class AttendanceModule {}

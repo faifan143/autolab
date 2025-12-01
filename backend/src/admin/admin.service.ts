@@ -16,6 +16,7 @@ import {
   ComplaintStatus,
 } from '../complaints/schemas/complaint.schema';
 import { ReportRangeDto } from './dto/report-range.dto';
+import { AttendanceGateway } from '../attendance/attendance.gateway';
 
 export interface AdminOverview {
   labs: {
@@ -93,6 +94,7 @@ export class AdminService {
     @InjectModel(Grade.name) private readonly gradeModel: Model<GradeDocument>,
     @InjectModel(Complaint.name)
     private readonly complaintModel: Model<ComplaintDocument>,
+    private readonly attendanceGateway: AttendanceGateway,
   ) {}
 
   async getOverview(): Promise<AdminOverview> {
@@ -112,7 +114,7 @@ export class AdminService {
       this.computeComplaintStats(),
     ]);
 
-    return {
+    const overview: AdminOverview = {
       labs: labStats,
       users: userStats,
       sessions: {
@@ -122,6 +124,11 @@ export class AdminService {
       complaints: complaintsStats,
       attendance: attendanceStats,
     };
+
+    // Emit realtime overview update for dashboards.
+    this.attendanceGateway.emitDashboardOverview(overview);
+
+    return overview;
   }
 
   async getAttendanceReport(query: ReportRangeDto): Promise<AttendanceReport> {
