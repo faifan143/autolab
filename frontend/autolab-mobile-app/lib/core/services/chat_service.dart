@@ -20,13 +20,20 @@ class ChatService {
 
   Stream<ChatMessageModel> get messageStream => _messageController.stream;
 
-  Future<List<ChatMessageModel>> getMessages({String? labId}) async {
-    final Map<String, dynamic> query = {};
+  Future<List<ChatMessageModel>> getMessages({
+    required String channel,
+    String? labId,
+    int limit = 50,
+  }) async {
+    final query = <String, dynamic>{
+      'channel': channel,
+      'limit': limit,
+    };
     if (labId != null) query['labId'] = labId;
 
     final Response response = await _api.get(
       ApiConstants.chatMessages,
-      queryParameters: query.isEmpty ? null : query,
+      queryParameters: query,
     );
 
     dynamic data = response.data;
@@ -43,36 +50,72 @@ class ChatService {
     return [];
   }
 
+  Future<ChatMessageModel> sendMessage(
+    String text, {
+    required String channel,
+    String? labId,
+  }) async {
+    if (text.trim().isEmpty) {
+      throw ArgumentError('Message content cannot be empty');
+    }
+
+    final Response response = await _api.post(
+      ApiConstants.chatMessages,
+      data: {
+        'channel': channel,
+        'content': text.trim(),
+        if (labId != null) 'labId': labId,
+      },
+    );
+
+    dynamic data = response.data;
+    if (data is String) {
+      data = jsonDecode(data);
+    }
+
+    return ChatMessageModel.fromJson(data as Map<String, dynamic>);
+  }
+
   Future<void> connect() async {
-    if (_socket != null) return;
+    if (_socket != null && _socket!.connected) return;
+
+    disconnect();
 
     final token = await _storage.getAccessToken();
-    final uri = '${ServerConfig.instance.wsBaseUrl}/ws/teachers/';
+    if (token == null || token.isEmpty) {
+      throw Exception('No access token available');
+    }
+
+    final cleanToken = token.replaceFirst(RegExp(r'^Bearer\s+'), '');
+    final baseUrl =
+        ServerConfig.instance.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
+    final uri = '$baseUrl/ws/teachers';
 
     _socket = io.io(
       uri,
       io.OptionBuilder()
           .setTransports(['websocket'])
           .enableForceNew()
-          .setExtraHeaders(
-            token != null ? {'Authorization': 'Bearer $token'} : {},
-          )
+          .setAuth({'token': cleanToken})
+          .setExtraHeaders({'Authorization': 'Bearer $cleanToken'})
+          .setTimeout(10000)
           .build(),
     );
 
     _socket?.onConnect((_) {});
     _socket?.onDisconnect((_) {});
 
-    // NOTE: Event names and payload shapes must match the backend.
-    // These are scaffolding defaults and may need adjustment.
-    _socket?.on('chat:message', (data) {
+    _socket?.on('chat:message-created', (data) {
       try {
+        final Map<String, dynamic> json;
         if (data is Map<String, dynamic>) {
-          _messageController.add(ChatMessageModel.fromJson(data));
+          json = data;
         } else if (data is String) {
-          final decoded = jsonDecode(data) as Map<String, dynamic>;
-          _messageController.add(ChatMessageModel.fromJson(decoded));
+          json = jsonDecode(data) as Map<String, dynamic>;
+        } else {
+          return;
         }
+        _messageController.add(ChatMessageModel.fromJson(json));
       } catch (_) {
         // Ignore malformed messages.
       }
@@ -84,33 +127,8 @@ class ChatService {
     _socket = null;
   }
 
-  void joinChannel(String channel, {String? labId}) {
-    if (_socket == null) return;
-    final payload = {
-      'channel': channel,
-      if (labId != null) 'labId': labId,
-    };
-    _socket?.emit('chat:join', payload);
-  }
-
-  Future<void> sendMessage(
-    String text, {
-    required String channel,
-    String? labId,
-  }) async {
-    if (text.trim().isEmpty) return;
-    final payload = {
-      'channel': channel,
-      'content': text.trim(),
-      if (labId != null) 'labId': labId,
-    };
-    _socket?.emit('chat:send', payload);
-  }
-
   void dispose() {
     disconnect();
     _messageController.close();
   }
 }
-
-

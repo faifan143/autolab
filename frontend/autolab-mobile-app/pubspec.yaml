@@ -70,6 +70,7 @@ dependencies:
   equatable: ^2.0.5
   intl: 0.20.2
   url_launcher: ^6.3.0
+  mediasfu_mediasoup_client: ^0.0.7
 
 dev_dependencies:
   flutter_test:

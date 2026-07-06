@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/file_model.dart';
@@ -8,6 +9,7 @@ class FilesProvider with ChangeNotifier {
 
   List<FileModel> _files = [];
   bool _isLoading = false;
+  bool _isUploading = false;
   String? _error;
 
   String? _selectedLabId;
@@ -16,6 +18,7 @@ class FilesProvider with ChangeNotifier {
 
   List<FileModel> get files => _files;
   bool get isLoading => _isLoading;
+  bool get isUploading => _isUploading;
   String? get error => _error;
 
   String? get selectedLabId => _selectedLabId;
@@ -50,6 +53,36 @@ class FilesProvider with ChangeNotifier {
     }
   }
 
+  Future<FileModel?> uploadFile(
+    String filePath, {
+    String? labId,
+    String? sessionId,
+    String? description,
+    ProgressCallback? onSendProgress,
+  }) async {
+    _isUploading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final uploaded = await _service.uploadFile(
+        filePath,
+        labId: labId ?? _selectedLabId,
+        sessionId: sessionId ?? _selectedSessionId,
+        description: description,
+        onSendProgress: onSendProgress,
+      );
+      _files = [uploaded, ..._files];
+      return uploaded;
+    } catch (e) {
+      _error = e.toString();
+      return null;
+    } finally {
+      _isUploading = false;
+      notifyListeners();
+    }
+  }
+
   Future<String?> downloadFile(String fileId) async {
     try {
       final url = await _service.getFileDownloadUrl(fileId);
@@ -61,5 +94,3 @@ class FilesProvider with ChangeNotifier {
     }
   }
 }
-
-

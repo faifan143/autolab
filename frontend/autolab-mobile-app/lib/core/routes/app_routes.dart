@@ -42,11 +42,17 @@ class AppRoutes {
     labs: (context) => const LabsListScreen(),
     labDetail: (context) {
       final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-      return LabDetailScreen(labId: args['labId']);
+      return LabDetailScreen(
+        labId: args['labId'],
+        labName: args['labName'],
+      );
     },
     sessions: (context) {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      return SessionsListScreen(labId: args?['labId']);
+      return SessionsListScreen(
+        labId: args?['labId'],
+        labName: args?['labName'],
+      );
     },
     sessionDetail: (context) {
       final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
@@ -67,13 +73,18 @@ class AppRoutes {
     },
     files: (context) {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      return FilesListScreen(labId: args?['labId'], sessionId: args?['sessionId']);
+      return FilesListScreen(
+        labId: args?['labId'],
+        sessionId: args?['sessionId'],
+        labName: args?['labName'],
+      );
     },
     chat: (context) {
       final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
       return ChatScreen(
         channel: args['channel'],
         labId: args['labId'],
+        title: args['title'] ?? args['labName'],
       );
     },
     settings: (context) => const SettingsScreen(),

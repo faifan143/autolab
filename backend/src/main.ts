@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
+import { formatDevServerUrls } from './common/utils/network-address.util';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -21,7 +22,7 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.enableCors({
-    origin: "*",
+    origin: '*',
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -39,10 +40,12 @@ async function bootstrap() {
 
   app.useWebSocketAdapter(new IoAdapter(app));
 
-
   const port = configService.get<number>('PORT') ?? 3000;
   const host = configService.get<string>('HOST') ?? '0.0.0.0';
 
   await app.listen(port, host);
+
+  // eslint-disable-next-line no-console
+  console.log(formatDevServerUrls(port));
 }
 bootstrap();

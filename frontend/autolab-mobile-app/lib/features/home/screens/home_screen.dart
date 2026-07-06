@@ -104,7 +104,11 @@ class HomeScreen extends StatelessWidget {
                     subtitle: 'teachers.lobby'.tr,
                     onTap: () => Navigator.of(context).pushNamed(
                       AppRoutes.chat,
-                      arguments: {'channel': 'teachers:lobby', 'labId': null},
+                      arguments: {
+                        'channel': 'teachers:lobby',
+                        'labId': null,
+                        'title': 'teachers.lobby'.tr,
+                      },
                     ),
                   ),
                 ]),

@@ -38,6 +38,35 @@ class FilesService {
     return [];
   }
 
+  Future<FileModel> uploadFile(
+    String filePath, {
+    String? labId,
+    String? sessionId,
+    String? description,
+    ProgressCallback? onSendProgress,
+  }) async {
+    final Map<String, dynamic> fields = {};
+    if (labId != null) fields['labId'] = labId;
+    if (sessionId != null) fields['sessionId'] = sessionId;
+    if (description != null && description.isNotEmpty) {
+      fields['description'] = description;
+    }
+
+    final Response response = await _api.uploadFile(
+      ApiConstants.files,
+      filePath,
+      data: fields.isEmpty ? null : fields,
+      onSendProgress: onSendProgress,
+    );
+
+    dynamic data = response.data;
+    if (data is String) {
+      data = jsonDecode(data);
+    }
+
+    return FileModel.fromJson(data as Map<String, dynamic>);
+  }
+
   Future<FileModel> getFileById(String id) async {
     final Response response = await _api.get(ApiConstants.fileById(id));
 
@@ -61,14 +90,6 @@ class FilesService {
       return data['url'] as String;
     }
 
-    // Fallback to the url field on the main file resource if present.
-    try {
-      final file = FileModel.fromJson(data as Map<String, dynamic>);
-      return file.url;
-    } catch (_) {
-      rethrow;
-    }
+    throw StateError('Invalid response format: missing url field');
   }
 }
-
-

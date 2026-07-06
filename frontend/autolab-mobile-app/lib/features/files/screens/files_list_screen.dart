@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -11,8 +12,14 @@ import '../../../core/providers/labs_provider.dart';
 class FilesListScreen extends StatefulWidget {
   final String? labId;
   final String? sessionId;
+  final String? labName;
 
-  const FilesListScreen({super.key, this.labId, this.sessionId});
+  const FilesListScreen({
+    super.key,
+    this.labId,
+    this.sessionId,
+    this.labName,
+  });
 
   @override
   State<FilesListScreen> createState() => _FilesListScreenState();
@@ -38,13 +45,64 @@ class _FilesListScreenState extends State<FilesListScreen> {
     });
   }
 
+  String get _screenTitle {
+    if (widget.sessionId != null) {
+      return 'files.session.title'.tr;
+    }
+    if (widget.labName != null && widget.labName!.isNotEmpty) {
+      return 'files.lab.title'.trParams({'name': widget.labName!});
+    }
+    return 'files.title'.tr;
+  }
+
+  Future<void> _pickAndUpload() async {
+    final result = await FilePicker.platform.pickFiles(withReadStream: false);
+    if (result == null || result.files.isEmpty) return;
+
+    final picked = result.files.first;
+    final path = picked.path;
+    if (path == null) return;
+
+    if (!mounted) return;
+
+    final filesProvider = Provider.of<FilesProvider>(context, listen: false);
+    final uploaded = await filesProvider.uploadFile(
+      path,
+      labId: widget.labId,
+      sessionId: widget.sessionId,
+    );
+
+    if (!mounted) return;
+
+    if (uploaded != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('files.upload.success'.tr)),
+      );
+    } else if (filesProvider.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('files.upload.error'.tr)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filesProvider = context.watch<FilesProvider>();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('files.title'.tr),
+        title: Text(_screenTitle),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: filesProvider.isUploading ? null : _pickAndUpload,
+        icon: filesProvider.isUploading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.upload_file),
+        label: Text('files.upload'.tr),
       ),
       body: Builder(
         builder: (context) {
@@ -144,7 +202,9 @@ class _FilesListScreenState extends State<FilesListScreen> {
               ),
               _DetailRow(
                 label: 'files.createdAt'.tr,
-                value: formatter.format(file.createdAt.toLocal()),
+                value: file.createdAt == null
+                    ? '—'
+                    : formatter.format(file.createdAt!.toLocal()),
               ),
               if (file.labId != null)
                 _DetailRow(
@@ -271,7 +331,9 @@ class _FileCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_formatSize(file.size)} • ${formatter.format(file.createdAt.toLocal())}',
+                      file.createdAt == null
+                          ? _formatSize(file.size)
+                          : '${_formatSize(file.size)} • ${formatter.format(file.createdAt!.toLocal())}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: color.onSurfaceVariant,
                       ),

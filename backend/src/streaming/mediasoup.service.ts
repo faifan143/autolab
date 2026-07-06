@@ -11,7 +11,7 @@ import {
   Worker,
 } from 'mediasoup/types';
 import { createWorker } from 'mediasoup';
-import { networkInterfaces } from 'os';
+import { getRecommendedLanIp } from '../common/utils/network-address.util';
 import type { MediasoupRoom, MediasoupRoomId } from './mediasoup.types';
 
 @Injectable()
@@ -55,30 +55,18 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async detectAnnouncedIp(): Promise<string | undefined> {
-    // If explicitly set in env, use it
     if (process.env.MEDIASOUP_ANNOUNCED_IP) {
       return process.env.MEDIASOUP_ANNOUNCED_IP;
     }
 
-    // Auto-detect: Get first non-internal IPv4 address
-    const interfaces = networkInterfaces();
-    
-    for (const interfaceName in interfaces) {
-      const addresses = interfaces[interfaceName];
-      if (!addresses) continue;
-
-      for (const addr of addresses) {
-        // Skip internal (127.0.0.1) and IPv6 addresses
-        if (addr.family === 'IPv4' && !addr.internal) {
-          this.logger.log(
-            `Auto-detected MEDIASOUP_ANNOUNCED_IP: ${addr.address} (${interfaceName})`,
-          );
-          return addr.address;
-        }
-      }
+    const recommended = getRecommendedLanIp();
+    if (recommended) {
+      this.logger.log(
+        `Auto-detected MEDIASOUP_ANNOUNCED_IP: ${recommended} (LAN preferred over VPN)`,
+      );
+      return recommended;
     }
 
-    // Fallback: Use listen IP if configured, otherwise use 127.0.0.1
     const listenIp = process.env.MEDIASOUP_LISTEN_IP || '127.0.0.1';
     this.logger.warn(
       `Could not auto-detect announced IP. Using listen IP: ${listenIp}`,

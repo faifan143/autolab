@@ -9,8 +9,14 @@ import '../../../core/providers/chat_provider.dart';
 class ChatScreen extends StatefulWidget {
   final String channel;
   final String? labId;
+  final String? title;
 
-  const ChatScreen({super.key, required this.channel, this.labId});
+  const ChatScreen({
+    super.key,
+    required this.channel,
+    this.labId,
+    this.title,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -18,20 +24,32 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
+  late final ChatProvider _chatProvider;
 
   @override
   void initState() {
     super.initState();
+    _chatProvider = Provider.of<ChatProvider>(context, listen: false);
     Future.microtask(() {
-      final provider = Provider.of<ChatProvider>(context, listen: false);
-      provider.init(channel: widget.channel, labId: widget.labId);
+      _chatProvider.init(channel: widget.channel, labId: widget.labId);
     });
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _chatProvider.leave();
     super.dispose();
+  }
+
+  String get _screenTitle {
+    if (widget.title != null && widget.title!.isNotEmpty) {
+      return widget.title!;
+    }
+    if (widget.channel == 'teachers:lobby') {
+      return 'teachers.lobby'.tr;
+    }
+    return 'chat.title'.tr;
   }
 
   @override
@@ -40,7 +58,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('chat.title'.tr),
+        title: Text(_screenTitle),
       ),
       body: Column(
         children: [
@@ -82,6 +100,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       controller: _controller,
                       minLines: 1,
                       maxLines: 4,
+                      enabled: !chat.isSending,
                       decoration: InputDecoration(
                         hintText: 'chat.input.hint'.tr,
                         border: const OutlineInputBorder(),
@@ -91,20 +110,20 @@ class _ChatScreenState extends State<ChatScreen> {
                           vertical: 8,
                         ),
                       ),
+                      onSubmitted: chat.isSending ? null : (_) => _send(chat),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.send),
+                    icon: chat.isSending
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send),
                     color: Theme.of(context).colorScheme.primary,
-                    onPressed: () async {
-                      final text = _controller.text.trim();
-                      if (text.isEmpty) return;
-                      await chat.sendMessage(text);
-                      if (mounted) {
-                        _controller.clear();
-                      }
-                    },
+                    onPressed: chat.isSending ? null : () => _send(chat),
                     tooltip: 'chat.send'.tr,
                   ),
                 ],
@@ -114,6 +133,15 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _send(ChatProvider chat) async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    await chat.sendMessage(text);
+    if (mounted) {
+      _controller.clear();
+    }
   }
 }
 
@@ -203,4 +231,3 @@ class _MessagesList extends StatelessWidget {
     );
   }
 }
-

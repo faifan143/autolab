@@ -8,8 +8,9 @@ import '../../../core/routes/app_routes.dart';
 
 class SessionsListScreen extends StatelessWidget {
   final String? labId;
+  final String? labName;
 
-  const SessionsListScreen({super.key, this.labId});
+  const SessionsListScreen({super.key, this.labId, this.labName});
 
   @override
   Widget build(BuildContext context) {
@@ -27,9 +28,31 @@ class SessionsListScreen extends StatelessWidget {
         final provider = Provider.of<SessionsProvider>(context);
         return Scaffold(
           appBar: AppBar(
-            title: Text('sessions'.tr),
+            title: Text(labName ?? 'sessions'.tr),
+            actions: [
+              IconButton(
+                tooltip: 'chat'.tr,
+                icon: const Icon(Icons.chat_bubble_outline),
+                onPressed: () => Navigator.of(context).pushNamed(
+                  AppRoutes.chat,
+                  arguments: {
+                    'channel': 'lab:$id',
+                    'labId': id,
+                    'title': labName ?? 'chat.title'.tr,
+                  },
+                ),
+              ),
+              IconButton(
+                tooltip: 'files'.tr,
+                icon: const Icon(Icons.folder_open_outlined),
+                onPressed: () => Navigator.of(context).pushNamed(
+                  AppRoutes.files,
+                  arguments: {'labId': id, 'labName': labName},
+                ),
+              ),
+            ],
           ),
-          body: _SessionsBody(provider: provider),
+          body: _SessionsBody(provider: provider, labId: id),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _openCreateBottomSheet(context, provider),
             icon: const Icon(Icons.add),
@@ -111,7 +134,9 @@ class SessionsListScreen extends StatelessWidget {
 
 class _SessionsBody extends StatelessWidget {
   final SessionsProvider provider;
-  const _SessionsBody({required this.provider});
+  final String labId;
+
+  const _SessionsBody({required this.provider, required this.labId});
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +168,7 @@ class _SessionsBody extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final session = provider.sessions[index];
-        return _SessionCard(session: session);
+        return _SessionCard(session: session, labId: labId);
       },
     );
   }
@@ -151,7 +176,9 @@ class _SessionsBody extends StatelessWidget {
 
 class _SessionCard extends StatelessWidget {
   final SessionModel session;
-  const _SessionCard({required this.session});
+  final String labId;
+
+  const _SessionCard({required this.session, required this.labId});
 
   @override
   Widget build(BuildContext context) {
@@ -210,6 +237,19 @@ class _SessionCard extends StatelessWidget {
                       label: 'recorded'.tr,
                       color: color.secondary,
                     ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pushNamed(
+                        AppRoutes.files,
+                        arguments: {
+                          'labId': labId,
+                          'sessionId': session.id,
+                        },
+                      );
+                    },
+                    icon: const Icon(Icons.folder_open_outlined),
+                    label: Text('files'.tr),
+                  ),
                   TextButton.icon(
                     onPressed: () {
                       Navigator.of(context).pushNamed(

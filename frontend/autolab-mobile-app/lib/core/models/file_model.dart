@@ -9,26 +9,32 @@ class FileModel {
   final String fileName;
   final String mimeType;
   final int size;
-  final String url;
+  final String? url;
   final String? labId;
   final String? sessionId;
   final String ownerId;
   final UserModel? owner;
   final String? description;
-  final DateTime createdAt;
+  final String storageKey;
+  final int? version;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   FileModel({
     required this.id,
     required this.fileName,
     required this.mimeType,
     required this.size,
-    required this.url,
+    this.url,
     this.labId,
     this.sessionId,
     required this.ownerId,
     this.owner,
     this.description,
-    required this.createdAt,
+    required this.storageKey,
+    this.version,
+    this.createdAt,
+    this.updatedAt,
   });
 
   factory FileModel.fromJson(Map<String, dynamic> json) =>
@@ -36,5 +42,3 @@ class FileModel {
 
   Map<String, dynamic> toJson() => _$FileModelToJson(this);
 }
-
-

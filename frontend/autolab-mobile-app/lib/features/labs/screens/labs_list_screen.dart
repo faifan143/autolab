@@ -54,8 +54,11 @@ class _LabsListScreenState extends State<LabsListScreen> {
                   lab: lab,
                   onOpen: () {
                     Navigator.of(context).pushNamed(
-                      AppRoutes.sessions,
-                      arguments: {'labId': lab.id},
+                      AppRoutes.labDetail,
+                      arguments: {
+                        'labId': lab.id,
+                        'labName': lab.name,
+                      },
                     );
                   },
                 );

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../config/server_config.dart';
 import '../providers/auth_provider.dart';
+import '../providers/chat_provider.dart';
 import '../providers/labs_provider.dart';
 import '../services/api_service.dart';
 
@@ -98,6 +99,7 @@ class _ServerIpDialogState extends State<ServerIpDialog> {
 
             Provider.of<AuthProvider>(context, listen: false).reset();
             Provider.of<LabsProvider>(context, listen: false).reset();
+            Provider.of<ChatProvider>(context, listen: false).reset();
 
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
