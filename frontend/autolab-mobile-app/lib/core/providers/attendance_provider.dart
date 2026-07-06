@@ -11,16 +11,13 @@ class AttendanceProvider with ChangeNotifier {
 
   bool loadingSessions = false;
   bool loadingAttendance = false;
-  bool generatingQr = false;
+  bool scanningStudent = false;
   String? error;
 
   List<SessionModel> sessions = [];
   SessionAttendanceResponse? attendance;
   String? currentLabId;
   String? currentSessionId;
-  String? startQrToken;
-  String? endQrToken;
-  DateTime? qrExpiresAt;
 
   Future<void> loadSessions(String labId) async {
     currentLabId = labId;
@@ -52,8 +49,25 @@ class AttendanceProvider with ChangeNotifier {
       final res = await _attendanceService.getSessionAttendance(sessionId);
       dynamic data = res.data;
       if (data is String) data = jsonDecode(data);
-      attendance = SessionAttendanceResponse.fromJson(
-          data as Map<String, dynamic>);
+
+      final records = (data as List)
+          .map((e) => AttendanceModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      final present =
+          records.where((record) => record.status == 'present').length;
+      final late = records.where((record) => record.status == 'late').length;
+
+      attendance = SessionAttendanceResponse(
+        sessionId: sessionId,
+        attendance: records,
+        summary: AttendanceSummary(
+          present: present,
+          late: late,
+          absent: 0,
+          total: records.length,
+        ),
+      );
     } catch (e) {
       error = e.toString();
       attendance = null;
@@ -63,39 +77,25 @@ class AttendanceProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> generateQr({int expiresIn = 5}) async {
+  Future<bool> scanStudentQr(String studentToken) async {
     if (currentSessionId == null) return false;
-    generatingQr = true;
+    scanningStudent = true;
     error = null;
     notifyListeners();
     try {
-      final res = await _attendanceService.generateQr(
+      await _attendanceService.scanStudentQr(
         currentSessionId!,
-        expiresIn: expiresIn,
+        studentToken,
       );
-      dynamic data = res.data;
-      if (data is String) data = jsonDecode(data);
-      debugPrint('QR payload: $data');
-      if (data is Map<String, dynamic>) {
-        startQrToken = (data['startToken'] ?? data['qrToken']) as String?;
-        endQrToken = (data['endToken'] ?? data['qrEndToken']) as String?;
-        final expires = data['expiresAt'] as String?;
-        qrExpiresAt = expires != null ? DateTime.tryParse(expires) : null;
-      } else {
-        startQrToken = null;
-        endQrToken = null;
-        qrExpiresAt = null;
-      }
-      generatingQr = false;
+      await loadAttendance(currentSessionId!);
+      scanningStudent = false;
       notifyListeners();
       return true;
     } catch (e) {
       error = e.toString();
-      generatingQr = false;
+      scanningStudent = false;
       notifyListeners();
       return false;
     }
   }
 }
-
-

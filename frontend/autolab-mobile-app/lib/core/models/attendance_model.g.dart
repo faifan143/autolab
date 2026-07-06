@@ -18,7 +18,9 @@ AttendanceModel _$AttendanceModelFromJson(Map<String, dynamic> json) =>
           ? null
           : SessionModel.fromJson(json['session'] as Map<String, dynamic>),
       status: json['status'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
+      timestamp: DateTime.parse(
+        (json['timestamp'] ?? json['scannedAt']) as String,
+      ),
       scannedAt: DateTime.parse(json['scannedAt'] as String),
     );
 

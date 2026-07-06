@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/models/attendance_model.dart';
 import '../../../core/models/lab_model.dart';
 import '../../../core/models/session_model.dart';
 import '../../../core/providers/attendance_provider.dart';
 import '../../../core/providers/labs_provider.dart';
+import 'attendance_scanner_screen.dart';
 
 class AttendanceScreen extends StatelessWidget {
   const AttendanceScreen({super.key});
@@ -86,9 +86,19 @@ class _AttendanceContentState extends State<_AttendanceContent> {
           ),
           const SizedBox(height: 16),
           if (selectedSession != null) ...[
-            _ActionRow(
-              onGenerateStart: () => _handleGenerateQr(context, false),
-              onGenerateEnd: () => _handleGenerateQr(context, true),
+            _ScanStudentButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ChangeNotifierProvider.value(
+                      value: attendance,
+                      child: AttendanceScannerScreen(
+                        sessionId: selectedSession!,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 16),
             _AttendanceSummary(attendance: attendance.attendance),
@@ -103,65 +113,22 @@ class _AttendanceContentState extends State<_AttendanceContent> {
       ),
     );
   }
+}
 
-  Future<void> _handleGenerateQr(BuildContext context, bool isEnd) async {
-    final attendance = context.read<AttendanceProvider>();
-    if ((isEnd && attendance.endQrToken == null) ||
-        (!isEnd && attendance.startQrToken == null)) {
-      final ok = await attendance.generateQr();
-      if (!ok) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(attendance.error ?? 'unknown.error'.tr)),
-          );
-        }
-        return;
-      }
-    }
-    if (!context.mounted) return;
-    final token = isEnd ? attendance.endQrToken : attendance.startQrToken;
-    if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(attendance.error ?? 'unknown.error'.tr)),
-      );
-      return;
-    }
+class _ScanStudentButton extends StatelessWidget {
+  final VoidCallback onPressed;
 
-    showDialog(
-      context: context,
-      builder: (_) {
-        final expires = attendance.qrExpiresAt != null
-            ? DateFormat('HH:mm').format(attendance.qrExpiresAt!.toLocal())
-            : null;
-        return AlertDialog(
-          title: Text(isEnd ? 'end.qr'.tr : 'start.qr'.tr),
-          content: SizedBox(
-            width: 260,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 220,
-                  height: 220,
-                  child: QrImageView(
-                    data: token,
-                    version: QrVersions.auto,
-                    backgroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (expires != null) Text('${'expires.at'.tr} $expires'),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('close'.tr),
-            ),
-          ],
-        );
-      },
+  const _ScanStudentButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.qr_code_scanner),
+        label: Text('scan.student.qr'.tr),
+      ),
     );
   }
 }
@@ -258,38 +225,6 @@ class _SessionDropdown extends StatelessWidget {
       decoration: InputDecoration(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
-    );
-  }
-}
-
-class _ActionRow extends StatelessWidget {
-  final VoidCallback onGenerateStart;
-  final VoidCallback onGenerateEnd;
-  const _ActionRow({
-    required this.onGenerateStart,
-    required this.onGenerateEnd,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: onGenerateStart,
-            icon: const Icon(Icons.qr_code_2),
-            label: Text('start.qr'.tr),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: onGenerateEnd,
-            icon: const Icon(Icons.qr_code_2_outlined),
-            label: Text('end.qr'.tr),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -391,7 +326,8 @@ class _AttendanceList extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        record.student?.name ?? '—',
+                        record.student?.name ??
+                            '${'student'.tr} ${record.studentId.substring(0, 6)}',
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium

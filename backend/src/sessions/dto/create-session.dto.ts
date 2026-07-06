@@ -1,9 +1,9 @@
 import {
   IsDateString,
+  IsInt,
   IsMongoId,
-  IsNotEmpty,
   IsOptional,
-  IsString,
+  Min,
 } from 'class-validator';
 
 export class CreateSessionDto {
@@ -15,4 +15,9 @@ export class CreateSessionDto {
 
   @IsDateString()
   endTime: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  lateThresholdMinutes?: number;
 }

@@ -2,7 +2,9 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
 import { LabsService } from '../labs/labs.service';
@@ -12,6 +14,7 @@ import { SessionDocument } from '../sessions/schemas/session.schema';
 import { UserRole } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { GenerateAttendanceQrDto } from './dto/generate-attendance-qr.dto';
+import { ScanStudentAttendanceDto } from './dto/scan-student-attendance.dto';
 import { SubmitAttendanceDto } from './dto/submit-attendance.dto';
 import { AttendanceGateway } from './attendance.gateway';
 import {
@@ -26,13 +29,29 @@ export interface AttendanceResponse {
   studentId: string;
   status: AttendanceStatus;
   scannedAt: string;
+  scannedByTeacherId?: string;
   ipAddress?: string;
   userAgent?: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
+export interface StudentCheckInQrResponse {
+  token: string;
+  expiresAt: string;
+}
+
+interface AttendanceCheckInPayload {
+  sub: string;
+  sessionId: string;
+  type: string;
+}
+
 const DEFAULT_QR_EXPIRATION_MINUTES = 5;
+const DEFAULT_LATE_THRESHOLD_MINUTES = 15;
+const STUDENT_CHECKIN_TOKEN_TTL_SECONDS = 30;
+const CHECKIN_WINDOW_BEFORE_START_MINUTES = 30;
+const ATTENDANCE_CHECKIN_TOKEN_TYPE = 'attendance-checkin';
 
 @Injectable()
 export class AttendanceService {
@@ -43,6 +62,7 @@ export class AttendanceService {
     private readonly labsService: LabsService,
     private readonly usersService: UsersService,
     private readonly attendanceGateway: AttendanceGateway,
+    private readonly jwtService: JwtService,
   ) {}
 
   async generateSessionQr(
@@ -61,6 +81,77 @@ export class AttendanceService {
     );
   }
 
+  async generateStudentCheckInQr(
+    sessionId: string,
+    studentId: string,
+    requesterRole: UserRole,
+  ): Promise<StudentCheckInQrResponse> {
+    if (requesterRole !== UserRole.Student) {
+      throw new ForbiddenException('Only students can generate check-in QR codes');
+    }
+
+    const session = await this.getSessionForCheckIn(sessionId);
+    const lab = await this.getLabForSession(session);
+    this.ensureStudentEnrolled(lab, studentId);
+    this.ensureWithinCheckInWindow(session);
+
+    const expiresAt = new Date(
+      Date.now() + STUDENT_CHECKIN_TOKEN_TTL_SECONDS * 1000,
+    );
+    const token = await this.jwtService.signAsync(
+      {
+        sub: studentId,
+        sessionId,
+        type: ATTENDANCE_CHECKIN_TOKEN_TYPE,
+      },
+      { expiresIn: STUDENT_CHECKIN_TOKEN_TTL_SECONDS },
+    );
+
+    return {
+      token,
+      expiresAt: expiresAt.toISOString(),
+    };
+  }
+
+  async scanStudentAttendance(
+    sessionId: string,
+    teacherId: string,
+    teacherRole: UserRole,
+    dto: ScanStudentAttendanceDto,
+  ): Promise<AttendanceDocument> {
+    if (teacherRole !== UserRole.Teacher && teacherRole !== UserRole.Admin) {
+      throw new ForbiddenException('Only teachers can scan student QR codes');
+    }
+
+    const session = await this.getSessionForCheckIn(sessionId);
+    const lab = await this.getLabForSession(session);
+    if (!this.canManageLabSession(lab, teacherId, teacherRole)) {
+      throw new ForbiddenException(
+        'Unauthorized to record attendance for this session',
+      );
+    }
+
+    const studentId = await this.verifyStudentCheckInToken(
+      dto.studentToken,
+      sessionId,
+    );
+    this.ensureStudentEnrolled(lab, studentId);
+    this.ensureWithinCheckInWindow(session);
+
+    const now = new Date();
+    const status = this.resolveStatusByTime(session, now);
+
+    return this.recordAttendance({
+      session,
+      studentId,
+      status,
+      scannedAt: now,
+      scannedByTeacherId: teacherId,
+      ipAddress: dto.ipAddress,
+      userAgent: dto.userAgent,
+    });
+  }
+
   async submitAttendance(
     sessionId: string,
     studentId: string,
@@ -75,12 +166,7 @@ export class AttendanceService {
     if (!lab) {
       throw new NotFoundException('Lab not found');
     }
-    const studentObjectId = new Types.ObjectId(studentId);
-    const students = lab.students ?? [];
-    const isMember = students.some((id) => id.toString() === studentId);
-    if (!isMember) {
-      throw new ForbiddenException('Student is not enrolled in this lab');
-    }
+    this.ensureStudentEnrolled(lab, studentId);
 
     const now = new Date();
     if (now < session.startTime || now > session.endTime) {
@@ -89,6 +175,115 @@ export class AttendanceService {
 
     const status = this.resolveStatus(session, dto.qrToken, now);
 
+    return this.recordAttendance({
+      session,
+      studentId,
+      status,
+      scannedAt: now,
+      ipAddress: dto.ipAddress,
+      userAgent: dto.userAgent,
+    });
+  }
+
+  async getSessionAttendance(
+    sessionId: string,
+    requesterId: string,
+    requesterRole: UserRole,
+  ): Promise<AttendanceResponse[]> {
+    const session = await this.sessionsService.findById(sessionId);
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    const lab = await this.labsService.findById(session.labId.toString());
+    if (!lab) {
+      throw new NotFoundException('Lab not found');
+    }
+
+    if (!this.canManageLabSession(lab, requesterId, requesterRole)) {
+      throw new ForbiddenException(
+        'Unauthorized to view attendance for this session',
+      );
+    }
+
+    const attendanceRecords = await this.attendanceModel
+      .find({
+        sessionId: new Types.ObjectId(sessionId),
+      })
+      .exec();
+
+    return attendanceRecords.map((record) =>
+      this.formatAttendanceResponse(record),
+    );
+  }
+
+  async getStudentAttendance(
+    studentId: string,
+    requesterId: string,
+    requesterRole: UserRole,
+    labId?: string,
+    sessionId?: string,
+  ): Promise<AttendanceResponse[]> {
+    if (studentId !== requesterId) {
+      if (requesterRole === UserRole.Teacher) {
+        const hasAccess = await this.teacherHasAccessToStudent(
+          requesterId,
+          studentId,
+        );
+        if (!hasAccess) {
+          throw new ForbiddenException(
+            "Unauthorized to view this student's attendance",
+          );
+        }
+      } else if (requesterRole !== UserRole.Admin) {
+        throw new ForbiddenException(
+          "Unauthorized to view this student's attendance",
+        );
+      }
+    }
+
+    const query: FilterQuery<AttendanceDocument> = {
+      studentId: new Types.ObjectId(studentId),
+    };
+
+    if (sessionId) {
+      query.sessionId = new Types.ObjectId(sessionId);
+    } else if (labId) {
+      const sessionIds = await this.findSessionsByLabId(labId);
+      if (sessionIds.length > 0) {
+        query.sessionId = { $in: sessionIds };
+      } else {
+        return [];
+      }
+    }
+
+    const attendanceRecords = await this.attendanceModel.find(query).exec();
+
+    return attendanceRecords.map((record) =>
+      this.formatAttendanceResponse(record),
+    );
+  }
+
+  private async recordAttendance(params: {
+    session: SessionDocument;
+    studentId: string;
+    status: AttendanceStatus;
+    scannedAt: Date;
+    scannedByTeacherId?: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<AttendanceDocument> {
+    const {
+      session,
+      studentId,
+      status,
+      scannedAt,
+      scannedByTeacherId,
+      ipAddress,
+      userAgent,
+    } = params;
+
+    const studentObjectId = new Types.ObjectId(studentId);
     const existingAttendance = await this.attendanceModel
       .findOne({ sessionId: session._id, studentId: studentObjectId })
       .exec();
@@ -102,24 +297,25 @@ export class AttendanceService {
       sessionId: sessionObjectId,
       studentId: studentObjectId,
       status,
-      scannedAt: now,
-      ipAddress: dto.ipAddress,
-      userAgent: dto.userAgent,
+      scannedAt,
+      scannedByTeacherId: scannedByTeacherId
+        ? new Types.ObjectId(scannedByTeacherId)
+        : undefined,
+      ipAddress,
+      userAgent,
     });
 
     const student = await this.usersService.findById(studentId);
 
-    // Emit per-scan event (existing behavior)
     this.attendanceGateway.emitAttendanceUpdate({
       sessionId: session.id,
       labId: session.labId.toString(),
       studentId,
       studentName: student?.name,
       status,
-      scannedAt: now.toISOString(),
+      scannedAt: scannedAt.toISOString(),
     });
 
-    // Emit aggregated attendance summary for the session
     const summary = await this.attendanceModel
       .aggregate<{
         _id: Types.ObjectId;
@@ -171,88 +367,87 @@ export class AttendanceService {
     return attendance;
   }
 
-  async getSessionAttendance(
+  private async getSessionForCheckIn(
     sessionId: string,
-    requesterId: string,
-    requesterRole: UserRole,
-  ): Promise<AttendanceResponse[]> {
+  ): Promise<SessionDocument> {
     const session = await this.sessionsService.findById(sessionId);
     if (!session) {
       throw new NotFoundException('Session not found');
     }
+    return session;
+  }
 
+  private async getLabForSession(session: SessionDocument): Promise<LabDocument> {
     const lab = await this.labsService.findById(session.labId.toString());
     if (!lab) {
       throw new NotFoundException('Lab not found');
     }
-
-    if (!this.canManageLabSession(lab, requesterId, requesterRole)) {
-      throw new ForbiddenException(
-        'Unauthorized to view attendance for this session',
-      );
-    }
-
-    const attendanceRecords = await this.attendanceModel
-      .find({
-        sessionId: new Types.ObjectId(sessionId),
-      })
-      .exec();
-
-    return attendanceRecords.map((record) =>
-      this.formatAttendanceResponse(record),
-    );
+    return lab;
   }
 
-  async getStudentAttendance(
-    studentId: string,
-    requesterId: string,
-    requesterRole: UserRole,
-    labId?: string,
-    sessionId?: string,
-  ): Promise<AttendanceResponse[]> {
-    // Check authorization
-    if (studentId !== requesterId) {
-      // If not viewing own attendance, must be teacher or admin
-      if (requesterRole === UserRole.Teacher) {
-        // Teachers can only view students in their labs
-        const hasAccess = await this.teacherHasAccessToStudent(
-          requesterId,
-          studentId,
-        );
-        if (!hasAccess) {
-          throw new ForbiddenException(
-            "Unauthorized to view this student's attendance",
-          );
-        }
-      } else if (requesterRole !== UserRole.Admin) {
-        throw new ForbiddenException(
-          "Unauthorized to view this student's attendance",
-        );
-      }
+  private ensureStudentEnrolled(lab: LabDocument, studentId: string): void {
+    const students = lab.students ?? [];
+    const isMember = students.some((id) => id.toString() === studentId);
+    if (!isMember) {
+      throw new ForbiddenException('Student is not enrolled in this lab');
     }
+  }
 
-    // Build query
-    const query: FilterQuery<AttendanceDocument> = {
-      studentId: new Types.ObjectId(studentId),
-    };
-
-    if (sessionId) {
-      query.sessionId = new Types.ObjectId(sessionId);
-    } else if (labId) {
-      // If filtering by lab, find all sessions for that lab
-      const sessionIds = await this.findSessionsByLabId(labId);
-      if (sessionIds.length > 0) {
-        query.sessionId = { $in: sessionIds };
-      } else {
-        return []; // No sessions, return empty
-      }
-    }
-
-    const attendanceRecords = await this.attendanceModel.find(query).exec();
-
-    return attendanceRecords.map((record) =>
-      this.formatAttendanceResponse(record),
+  private ensureWithinCheckInWindow(session: SessionDocument): void {
+    const now = new Date();
+    const windowStart = new Date(
+      session.startTime.getTime() -
+        CHECKIN_WINDOW_BEFORE_START_MINUTES * 60 * 1000,
     );
+
+    if (now < windowStart || now > session.endTime) {
+      throw new ForbiddenException('Session check-in is not open');
+    }
+  }
+
+  private async verifyStudentCheckInToken(
+    studentToken: string,
+    sessionId: string,
+  ): Promise<string> {
+    let payload: AttendanceCheckInPayload;
+    try {
+      payload = await this.jwtService.verifyAsync<AttendanceCheckInPayload>(
+        studentToken,
+      );
+    } catch {
+      throw new UnauthorizedException('Invalid or expired student QR code');
+    }
+
+    if (
+      payload.type !== ATTENDANCE_CHECKIN_TOKEN_TYPE ||
+      payload.sessionId !== sessionId ||
+      !payload.sub
+    ) {
+      throw new UnauthorizedException('Invalid student QR code for this session');
+    }
+
+    return payload.sub;
+  }
+
+  private resolveStatusByTime(
+    session: SessionDocument,
+    scannedAt: Date,
+  ): AttendanceStatus {
+    const lateThresholdMinutes =
+      session.lateThresholdMinutes ?? DEFAULT_LATE_THRESHOLD_MINUTES;
+    const lateCutoff = new Date(
+      session.startTime.getTime() + lateThresholdMinutes * 60 * 1000,
+    );
+
+    if (scannedAt <= lateCutoff) {
+      return AttendanceStatus.Present;
+    }
+
+    if (scannedAt <= session.endTime) {
+      return AttendanceStatus.Late;
+    }
+
+    throw new ForbiddenException('Session is not active');
   }
 
   private async findSessionsByLabId(labId: string): Promise<Types.ObjectId[]> {
@@ -307,6 +502,8 @@ export class AttendanceService {
       studentId: timestampedAttendance.studentId.toString(),
       status: timestampedAttendance.status,
       scannedAt: timestampedAttendance.scannedAt.toISOString(),
+      scannedByTeacherId:
+        timestampedAttendance.scannedByTeacherId?.toString() ?? undefined,
       ipAddress: timestampedAttendance.ipAddress ?? undefined,
       userAgent: timestampedAttendance.userAgent ?? undefined,
       createdAt: timestampedAttendance.createdAt?.toISOString(),

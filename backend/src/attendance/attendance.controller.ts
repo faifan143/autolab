@@ -11,15 +11,46 @@ import {
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../users/schemas/user.schema';
-import { AttendanceService } from './attendance.service';
-import { GenerateAttendanceQrDto } from './dto/generate-attendance-qr.dto';
-import { SubmitAttendanceDto } from './dto/submit-attendance.dto';
 import type { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
+import { UserRole } from '../users/schemas/user.schema';
+import { GenerateAttendanceQrDto } from './dto/generate-attendance-qr.dto';
+import { ScanStudentAttendanceDto } from './dto/scan-student-attendance.dto';
+import { SubmitAttendanceDto } from './dto/submit-attendance.dto';
+import { AttendanceService } from './attendance.service';
 
 @Controller('attendance')
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
+
+  @Get('sessions/:sessionId/my-qr')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.Student)
+  getStudentCheckInQr(
+    @Param('sessionId') sessionId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.attendanceService.generateStudentCheckInQr(
+      sessionId,
+      req.user.userId,
+      req.user.role,
+    );
+  }
+
+  @Post('sessions/:sessionId/scan')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.Teacher, UserRole.Admin)
+  scanStudentQr(
+    @Param('sessionId') sessionId: string,
+    @Body() dto: ScanStudentAttendanceDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.attendanceService.scanStudentAttendance(
+      sessionId,
+      req.user.userId,
+      req.user.role,
+      dto,
+    );
+  }
 
   @Post(':sessionId/qr')
   @UseGuards(JwtAuthGuard, RolesGuard)

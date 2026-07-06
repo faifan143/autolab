@@ -16,6 +16,9 @@ export class Session {
   @Prop({ required: true })
   endTime: Date;
 
+  @Prop({ type: Number, default: 15, min: 0 })
+  lateThresholdMinutes: number;
+
   @Prop({ required: true, unique: true })
   qrStartToken: string;
 

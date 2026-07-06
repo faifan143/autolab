@@ -33,6 +33,9 @@ export class Attendance {
 
   @Prop({ required: false })
   userAgent?: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  scannedByTeacherId?: Types.ObjectId;
 }
 
 export const AttendanceSchema = SchemaFactory.createForClass(Attendance);

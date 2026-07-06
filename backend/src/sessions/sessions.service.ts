@@ -17,6 +17,7 @@ export interface SessionResponse {
   labId: string;
   startTime: string;
   endTime: string;
+  lateThresholdMinutes: number;
   qrStartToken: string;
   qrEndToken: string;
   qrStartExpiresAt?: string;
@@ -61,6 +62,7 @@ export class SessionsService {
       labId: new Types.ObjectId(dto.labId),
       startTime: start,
       endTime: end,
+      lateThresholdMinutes: dto.lateThresholdMinutes ?? 15,
       qrStartToken: new Types.ObjectId().toHexString(),
       qrEndToken: new Types.ObjectId().toHexString(),
       qrStartExpiresAt: end,
@@ -104,6 +106,7 @@ export class SessionsService {
       labId: timestampedSession.labId.toString(),
       startTime: timestampedSession.startTime.toISOString(),
       endTime: timestampedSession.endTime.toISOString(),
+      lateThresholdMinutes: timestampedSession.lateThresholdMinutes ?? 15,
       qrStartToken: timestampedSession.qrStartToken,
       qrEndToken: timestampedSession.qrEndToken,
       qrStartExpiresAt: timestampedSession.qrStartExpiresAt?.toISOString(),

@@ -25,6 +25,8 @@ class ApiConstants {
   
   static String generateAttendanceQr(String sessionId) => 'attendance/$sessionId/qr';
   static String sessionAttendance(String sessionId) => 'attendance/sessions/$sessionId';
+  static String scanStudentAttendance(String sessionId) =>
+      'attendance/sessions/$sessionId/scan';
   static String studentAttendance(String studentId) => 'attendance/students/$studentId';
   
   static const String grades = 'grades';

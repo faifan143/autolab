@@ -5,10 +5,13 @@ import 'api_service.dart';
 class AttendanceService {
   final ApiService _api = ApiService();
 
-  Future<Response> generateQr(String sessionId, {int expiresIn = 15}) {
+  Future<Response> scanStudentQr(
+    String sessionId,
+    String studentToken,
+  ) {
     return _api.post(
-      ApiConstants.generateAttendanceQr(sessionId),
-      data: {'expiresInMinutes': expiresIn},
+      ApiConstants.scanStudentAttendance(sessionId),
+      data: {'studentToken': studentToken},
     );
   }
 
@@ -16,6 +19,3 @@ class AttendanceService {
     return _api.get(ApiConstants.sessionAttendance(sessionId));
   }
 }
-
-
-

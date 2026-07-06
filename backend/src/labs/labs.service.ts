@@ -340,6 +340,7 @@ export class LabsService {
       labId: timestampedSession.labId.toString(),
       startTime: timestampedSession.startTime.toISOString(),
       endTime: timestampedSession.endTime.toISOString(),
+      lateThresholdMinutes: timestampedSession.lateThresholdMinutes ?? 15,
       qrStartToken: timestampedSession.qrStartToken,
       qrEndToken: timestampedSession.qrEndToken,
       qrStartExpiresAt: timestampedSession.qrStartExpiresAt?.toISOString(),
