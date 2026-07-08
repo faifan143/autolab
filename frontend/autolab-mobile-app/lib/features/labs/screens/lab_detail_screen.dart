@@ -88,6 +88,15 @@ class LabDetailScreen extends StatelessWidget {
                 childAspectRatio: 1.05,
                 children: [
                   _LabActionCard(
+                    icon: Icons.groups_outlined,
+                    title: 'students'.tr,
+                    subtitle: 'labs.students.subtitle'.tr,
+                    onTap: () => Navigator.of(context).pushNamed(
+                      AppRoutes.labStudents,
+                      arguments: {'labId': labId, 'labName': name},
+                    ),
+                  ),
+                  _LabActionCard(
                     icon: Icons.event_outlined,
                     title: 'sessions'.tr,
                     subtitle: 'create.track.sessions'.tr,

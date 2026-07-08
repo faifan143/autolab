@@ -45,6 +45,44 @@ class LabModel {
       _$LabModelFromJson(json);
 
   Map<String, dynamic> toJson() => _$LabModelToJson(this);
+
+  LabModel copyWith({
+    String? id,
+    String? name,
+    String? teacherId,
+    UserModel? teacher,
+    List<String>? studentIds,
+    List<UserModel>? students,
+    bool? isArchived,
+    DateTime? archivedAt,
+    bool? isSuspended,
+    DateTime? suspendedAt,
+    String? suspendReason,
+    bool? archiveRequested,
+    DateTime? archiveRequestedAt,
+    String? archiveRequestReason,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return LabModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      teacherId: teacherId ?? this.teacherId,
+      teacher: teacher ?? this.teacher,
+      studentIds: studentIds ?? this.studentIds,
+      students: students ?? this.students,
+      isArchived: isArchived ?? this.isArchived,
+      archivedAt: archivedAt ?? this.archivedAt,
+      isSuspended: isSuspended ?? this.isSuspended,
+      suspendedAt: suspendedAt ?? this.suspendedAt,
+      suspendReason: suspendReason ?? this.suspendReason,
+      archiveRequested: archiveRequested ?? this.archiveRequested,
+      archiveRequestedAt: archiveRequestedAt ?? this.archiveRequestedAt,
+      archiveRequestReason: archiveRequestReason ?? this.archiveRequestReason,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }
 
 

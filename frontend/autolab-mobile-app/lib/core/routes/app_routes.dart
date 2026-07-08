@@ -5,6 +5,7 @@ import '../../features/splash/screens/splash_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/labs/screens/labs_list_screen.dart';
 import '../../features/labs/screens/lab_detail_screen.dart';
+import '../../features/labs/screens/lab_students_screen.dart';
 import '../../features/sessions/screens/sessions_list_screen.dart';
 import '../../features/sessions/screens/session_detail_screen.dart';
 import '../../features/sessions/screens/session_streaming_screen.dart';
@@ -21,6 +22,7 @@ class AppRoutes {
   static const String home = '/home';
   static const String labs = '/labs';
   static const String labDetail = '/labs/:id';
+  static const String labStudents = '/labs/students';
   static const String sessions = '/sessions';
   static const String sessionDetail = '/sessions/:id';
   static const String attendance = '/attendance';
@@ -45,6 +47,14 @@ class AppRoutes {
       return LabDetailScreen(
         labId: args['labId'],
         labName: args['labName'],
+      );
+    },
+    labStudents: (context) {
+      final args =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      return LabStudentsScreen(
+        labId: args['labId'] as String,
+        labName: args['labName'] as String?,
       );
     },
     sessions: (context) {
