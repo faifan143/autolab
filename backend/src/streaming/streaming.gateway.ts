@@ -9,6 +9,7 @@ import { Server, Socket } from 'socket.io';
 import { DtlsParameters, RtpCapabilities, RtpParameters } from 'mediasoup/types';
 import { StreamingService } from './streaming.service';
 import { MediasoupService } from './mediasoup.service';
+import { ServerRecordingService } from './server-recording.service';
 
 @WebSocketGateway({
   namespace: '/ws/streaming',
@@ -26,6 +27,7 @@ export class StreamingGateway
   constructor(
     private readonly streamingService: StreamingService,
     private readonly mediasoupService: MediasoupService,
+    private readonly serverRecordingService: ServerRecordingService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -190,8 +192,13 @@ export class StreamingGateway
       const producer = await this.mediasoupService.createProducer(
         sessionId,
         transportId,
-        rtpParameters,
+        { ...rtpParameters, kind },
       );
+
+      // Recording startup must never delay live publish acknowledgments.
+      void this.serverRecordingService
+        .maybeStartSessionRecording(sessionId)
+        .catch(() => undefined);
 
       // Store publisher connection
       await this.streamingService.setStreamPublisher(sessionId, userId);
@@ -287,6 +294,7 @@ export class StreamingGateway
 
     try {
       await this.streamingService.stopStream(sessionId, userId);
+      await this.serverRecordingService.stopSessionRecording(sessionId);
       await this.mediasoupService.closeSession(sessionId);
 
       // Notify all subscribers

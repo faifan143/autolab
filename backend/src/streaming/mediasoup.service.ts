@@ -278,8 +278,9 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
   }> {
     const router = await this.createRouter();
 
-    const listenIp = process.env.MEDIASOUP_LISTEN_IP || '127.0.0.1';
-    const announcedIp = this.announcedIp;
+    // Bind on all interfaces so phones on the LAN can reach UDP/TCP media ports.
+    const listenIp = process.env.MEDIASOUP_LISTEN_IP || '0.0.0.0';
+    const announcedIp = this.announcedIp ?? (await this.detectAnnouncedIp());
 
     const listenIps = [{ ip: listenIp, announcedIp }];
 
@@ -414,6 +415,19 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
     return sessionProducers;
   }
 
+  getLatestProducerByKind(
+    sessionId: string,
+    kind: MediaKind,
+  ): Producer | null {
+    let latest: Producer | null = null;
+    for (const data of this.producers.values()) {
+      if (data.sessionId !== sessionId) continue;
+      if (data.producer.kind !== kind) continue;
+      latest = data.producer;
+    }
+    return latest;
+  }
+
   async closeSession(sessionId: string): Promise<void> {
     // Close all transports and producers associated with the given sessionId,
     // but keep the shared router/worker alive for other sessions.
@@ -444,18 +458,22 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
     }
 
     const cloned: any = { ...rtpParameters };
+    const kind =
+      typeof cloned.kind === 'string' ? cloned.kind.toLowerCase() : 'video';
 
-    if (Array.isArray(cloned.codecs)) {
+    // Only constrain video to VP8; audio codecs must pass through unchanged.
+    if (kind === 'video' && Array.isArray(cloned.codecs)) {
       cloned.codecs = cloned.codecs.filter(
         (codec: any) =>
           codec &&
           typeof codec.mimeType === 'string' &&
           codec.mimeType.toLowerCase() === 'video/vp8',
       );
-    }
 
-    if (Array.isArray(cloned.encodings)) {
-      cloned.encodings = cloned.encodings.length > 0 ? [cloned.encodings[0]] : [];
+      if (Array.isArray(cloned.encodings)) {
+        cloned.encodings =
+          cloned.encodings.length > 0 ? [cloned.encodings[0]] : [];
+      }
     }
 
     return cloned;

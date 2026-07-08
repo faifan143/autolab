@@ -8,6 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { LabsService } from '../labs/labs.service';
 import { LabDocument } from '../labs/schemas/lab.schema';
+import { LocalStreamingService } from '../streaming/local-streaming.service';
 import { UserRole } from '../users/schemas/user.schema';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { Session, SessionDocument } from './schemas/session.schema';
@@ -31,12 +32,20 @@ export interface SessionResponse {
   updatedAt?: string;
 }
 
+export interface StartStreamResponse {
+  session: SessionResponse;
+  publishUrl: string;
+  streamKey: string;
+  hlsUrl: string;
+}
+
 @Injectable()
 export class SessionsService {
   constructor(
     @InjectModel(Session.name)
     private readonly sessionModel: Model<SessionDocument>,
     private readonly labsService: LabsService,
+    private readonly localStreamingService: LocalStreamingService,
   ) {}
 
   async createSession(
@@ -211,7 +220,7 @@ export class SessionsService {
     requesterRole: UserRole,
     streamUrl?: string,
     streamKey?: string,
-  ): Promise<SessionDocument> {
+  ): Promise<StartStreamResponse> {
     const session = await this.ensureSessionAccess(
       sessionId,
       requesterId,
@@ -222,12 +231,22 @@ export class SessionsService {
       throw new BadRequestException('Stream is already active for this session');
     }
 
-    session.isStreaming = true;
-    session.streamUrl = streamUrl;
-    session.streamKey = streamKey;
-    session.streamStartedAt = new Date();
+    const finalStreamKey = streamKey?.trim() || sessionId;
+    const finalStreamUrl =
+      streamUrl?.trim() || this.localStreamingService.buildHlsUrl(finalStreamKey);
 
-    return session.save();
+    session.isStreaming = true;
+    session.streamUrl = finalStreamUrl;
+    session.streamKey = finalStreamKey;
+    session.streamStartedAt = new Date();
+    const saved = await session.save();
+
+    return {
+      session: this.formatSessionResponse(saved),
+      publishUrl: this.localStreamingService.buildPublishUrl(finalStreamKey),
+      streamKey: finalStreamKey,
+      hlsUrl: finalStreamUrl,
+    };
   }
 
   async stopStream(
@@ -242,7 +261,7 @@ export class SessionsService {
     );
 
     if (!session.isStreaming) {
-      throw new BadRequestException('No active stream for this session');
+      return session;
     }
 
     session.isStreaming = false;

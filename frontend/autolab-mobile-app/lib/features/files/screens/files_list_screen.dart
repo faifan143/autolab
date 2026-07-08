@@ -1,13 +1,16 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/models/file_model.dart';
 import '../../../core/providers/files_provider.dart';
 import '../../../core/providers/labs_provider.dart';
+import '../../../core/services/files_service.dart';
 
 class FilesListScreen extends StatefulWidget {
   final String? labId;
@@ -136,24 +139,54 @@ class _FilesListScreenState extends State<FilesListScreen> {
               return _FileCard(
                 file: file,
                 onTap: () => _showFileDetails(context, file),
-                onOpen: () async {
-                  final url = await filesProvider.downloadFile(file.id);
-                  if (url == null || !context.mounted) return;
-                  final uri = Uri.tryParse(url);
-                  if (uri != null && await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('files.error'.tr),
-                      ),
-                    );
-                  }
-                },
+                onOpen: () => _openFile(context, file),
               );
             },
           );
         },
+      ),
+    );
+  }
+
+  Future<void> _openFile(BuildContext context, FileModel file) async {
+    if (_isImage(file)) {
+      await _showImagePreview(context, file);
+      return;
+    }
+
+    final filesProvider = Provider.of<FilesProvider>(context, listen: false);
+    if (filesProvider.isDownloading) return;
+
+    final downloaded = await filesProvider.downloadFile(file);
+    if (!context.mounted) return;
+
+    if (downloaded == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('files.open_failed'.tr)),
+      );
+      return;
+    }
+
+    final result = await OpenFilex.open(downloaded.path);
+    if (!context.mounted) return;
+
+    if (result.type != ResultType.done) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('files.no_app'.tr)),
+      );
+    }
+  }
+
+  bool _isImage(FileModel file) {
+    return FilesService.isImageFile(file.mimeType) ||
+        FilesService.isImageFileByName(file.fileName);
+  }
+
+  Future<void> _showImagePreview(BuildContext context, FileModel file) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (context) => _ImagePreviewScreen(file: file),
       ),
     );
   }
@@ -221,33 +254,41 @@ class _FilesListScreenState extends State<FilesListScreen> {
                 value: file.owner?.name ?? file.ownerId,
               ),
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () async {
-                    final filesProvider =
-                        Provider.of<FilesProvider>(context, listen: false);
-                    final url = await filesProvider.downloadFile(file.id);
-                    if (!context.mounted) return;
-                    if (url == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('files.error'.tr)),
-                      );
-                      return;
-                    }
-                    final uri = Uri.tryParse(url);
-                    if (uri != null && await canLaunchUrl(uri)) {
-                      await launchUrl(uri,
-                          mode: LaunchMode.externalApplication);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('files.error'.tr)),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.open_in_new),
-                  label: Text('files.download'.tr),
-                ),
+              Consumer<FilesProvider>(
+                builder: (context, filesProvider, _) {
+                  final isImage = _isImage(file);
+                  final isBusy = filesProvider.isDownloading;
+
+                  return SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: isBusy
+                          ? null
+                          : () async {
+                              Navigator.of(context).pop();
+                              if (isImage) {
+                                await _showImagePreview(context, file);
+                              } else {
+                                await _openFile(context, file);
+                              }
+                            },
+                      icon: isBusy
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(isImage ? Icons.image : Icons.open_in_new),
+                      label: Text(
+                        isBusy
+                            ? 'files.downloading'.tr
+                            : isImage
+                                ? 'files.view_image'.tr
+                                : 'files.download'.tr,
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 8),
               TextButton(
@@ -394,6 +435,85 @@ class _DetailRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ImagePreviewScreen extends StatefulWidget {
+  final FileModel file;
+
+  const _ImagePreviewScreen({required this.file});
+
+  @override
+  State<_ImagePreviewScreen> createState() => _ImagePreviewScreenState();
+}
+
+class _ImagePreviewScreenState extends State<_ImagePreviewScreen> {
+  File? _imageFile;
+  String? _error;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_loadImage);
+  }
+
+  Future<void> _loadImage() async {
+    final provider = Provider.of<FilesProvider>(context, listen: false);
+    final downloaded = await provider.downloadFile(widget.file);
+    if (!mounted) return;
+
+    setState(() {
+      _loading = false;
+      if (downloaded != null) {
+        _imageFile = downloaded;
+      } else {
+        _error = provider.error ?? 'files.load_image_failed'.tr;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(
+          widget.file.fileName,
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+      body: Center(
+        child: _loading
+            ? const CircularProgressIndicator(color: Colors.white)
+            : _error != null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.white,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'files.load_image_failed'.tr,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  )
+                : InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4,
+                    child: Image.file(
+                      _imageFile!,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
       ),
     );
   }

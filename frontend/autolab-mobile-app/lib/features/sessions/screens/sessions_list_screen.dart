@@ -103,8 +103,24 @@ class SessionsListScreen extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () async {
-                      if (start == null || end == null) return;
-                      if (end!.isBefore(start!)) return;
+                      if (start == null || end == null) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('sessions.select_times_required'.tr),
+                          ),
+                        );
+                        return;
+                      }
+                      if (!end!.isAfter(start!)) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('sessions.end_must_be_after_start'.tr),
+                          ),
+                        );
+                        return;
+                      }
                       final ok = await provider.createSession(
                         startTime: start!,
                         endTime: end!,

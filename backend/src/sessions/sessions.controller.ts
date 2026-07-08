@@ -16,6 +16,7 @@ import type { Express } from 'express';
 import { diskStorage } from 'multer';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { stat } from 'node:fs/promises';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -25,12 +26,14 @@ import { CreateSessionDto } from './dto/create-session.dto';
 import { StartStreamDto } from './dto/start-stream.dto';
 import { SessionsService } from './sessions.service';
 import type { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
+import { ServerRecordingService } from '../streaming/server-recording.service';
 
 @Controller('sessions')
 export class SessionsController {
   constructor(
     private readonly sessionsService: SessionsService,
     private readonly filesService: FilesService,
+    private readonly serverRecordingService: ServerRecordingService,
   ) {}
 
   @Post()
@@ -131,7 +134,7 @@ export class SessionsController {
   @Post(':id/stream/start')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.Teacher, UserRole.Admin)
-  startStream(
+  async startStream(
     @Param('id') sessionId: string,
     @Body() dto: StartStreamDto,
     @Request() req: AuthenticatedRequest,
@@ -148,14 +151,52 @@ export class SessionsController {
   @Post(':id/stream/stop')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.Teacher, UserRole.Admin)
-  stopStream(
+  async stopStream(
     @Param('id') sessionId: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.sessionsService.stopStream(
+    const stopped = await this.sessionsService.stopStream(
       sessionId,
       req.user.userId,
       req.user.role,
+    );
+
+    // Best effort: attach the generated local mp4 recording to session files.
+    await this.attachLocalRecordingIfExists(sessionId, req.user.userId, req.user.role);
+    return stopped;
+  }
+
+  private async attachLocalRecordingIfExists(
+    sessionId: string,
+    requesterId: string,
+    role: UserRole,
+  ): Promise<void> {
+    const session = await this.sessionsService.findById(sessionId);
+    if (!session) return;
+
+    const target = await this.serverRecordingService.findLatestRecordingPath(sessionId);
+    if (!target) return;
+
+    const fileStats = await stat(target);
+    if (fileStats.size < 1024) {
+      return;
+    }
+    const ext = '.mp4';
+    const file = {
+      path: target,
+      originalname: `session_stream_${sessionId}${ext}`,
+      mimetype: 'video/mp4',
+      size: fileStats.size,
+    } as Express.Multer.File;
+
+    await this.filesService.upload(
+      {
+        sessionId,
+        labId: session.labId.toString(),
+      },
+      file,
+      requesterId,
+      role,
     );
   }
 }

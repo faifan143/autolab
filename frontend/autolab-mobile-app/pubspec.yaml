@@ -48,6 +48,7 @@ dependencies:
   image_picker: ^1.0.7
   permission_handler: ^11.1.0
   path_provider: ^2.1.1
+  open_filex: ^4.5.0
   
   # UI Components
   flutter_svg: ^2.0.9
@@ -71,7 +72,6 @@ dependencies:
   intl: 0.20.2
   url_launcher: ^6.3.0
   mediasfu_mediasoup_client: ^0.0.7
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -46,6 +46,12 @@ class MyApp extends StatelessWidget {
           navigatorKey: AppRoutes.appNavigatorKey,
           title: AppConfig.appName,
           debugShowCheckedModeBanner: false,
+          builder: (context, child) {
+            return SafeArea(
+              top: false,
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           theme: Get.locale?.languageCode == 'ar'
               ? AppTheme.lightTheme.copyWith(
                   textTheme:

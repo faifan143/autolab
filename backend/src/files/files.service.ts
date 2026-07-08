@@ -140,18 +140,7 @@ export class FilesService {
         version,
       });
 
-      const downloadUrl = await this.backblazeService.getSignedUrl(storageKey);
-
-      return {
-        id: storedFile.id,
-        fileName: storedFile.fileName,
-        size: storedFile.size,
-        mimeType: storedFile.mimeType,
-        labId,
-        sessionId,
-        version: storedFile.version,
-        downloadUrl,
-      };
+      return this.formatFileResponse(storedFile);
     } finally {
       // Best-effort cleanup of the temporary file created by diskStorage.
       if (file.path) {

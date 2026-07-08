@@ -199,18 +199,34 @@ class ApiService {
     String path,
     String filePath, {
     String fileKey = 'file',
+    String? fileName,
+    String? contentType,
     Map<String, dynamic>? data,
+    Duration? sendTimeout,
     ProgressCallback? onSendProgress,
   }) async {
+    final normalizedFileName = fileName ??
+        filePath.split(RegExp(r'[\\/]')).last;
     final formData = FormData.fromMap({
       ...?data,
-      fileKey: await MultipartFile.fromFile(filePath),
+      fileKey: await MultipartFile.fromFile(
+        filePath,
+        filename: normalizedFileName,
+        contentType:
+            contentType != null ? DioMediaType.parse(contentType) : null,
+      ),
     });
 
     return _dio.post(
       path,
       data: formData,
       onSendProgress: onSendProgress,
+      options: sendTimeout != null
+          ? Options(
+              sendTimeout: sendTimeout,
+              receiveTimeout: const Duration(minutes: 2),
+            )
+          : null,
     );
   }
 }

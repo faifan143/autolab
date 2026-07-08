@@ -39,6 +39,9 @@ class AppTranslations extends Translations {
           'end.time': 'End time',
           'save': 'Save',
           'session.created': 'Session created',
+          'sessions.select_times_required': 'Please select start and end time.',
+          'sessions.end_must_be_after_start':
+              'End time must be after start time.',
           'unknown.error': 'Unknown error',
           'no.lab.selected': 'No lab selected',
           'no.sessions': 'No sessions yet',
@@ -70,6 +73,11 @@ class AppTranslations extends Translations {
           'files.title': 'Files',
           'files.empty': 'No files found',
           'files.error': 'Failed to load files',
+          'files.open_failed': 'Failed to open file',
+          'files.downloading': 'Downloading...',
+          'files.no_app': 'No app found to open this file',
+          'files.view_image': 'View image',
+          'files.load_image_failed': 'Failed to load image',
           'files.download': 'Open file',
           'files.lab': 'Lab',
           'files.session': 'Session',
@@ -96,8 +104,28 @@ class AppTranslations extends Translations {
           'streaming.stop': 'Stop stream',
           'streaming.description':
               'Start a live stream for this session. Students will be able to watch in real time.',
-          'streaming.preview.live': 'Live preview will appear here.',
+          'streaming.preview.live': 'Starting camera preview...',
           'streaming.preview.idle': 'Not streaming yet.',
+          'streaming.connecting': 'Connecting to stream...',
+          'streaming.live': 'LIVE',
+          'streaming.permission_denied':
+              'Camera and microphone permissions are required to stream.',
+          'streaming.auth_required': 'Please sign in to start streaming.',
+          'streaming.connection_failed':
+              'Could not connect to the streaming server. Restart the backend and ensure your phone uses the same Wi‑Fi network as the server (Settings → Server IP).',
+          'streaming.stop_failed':
+              'Could not stop the stream on the server. It may already be stopped.',
+          'streaming.save_recording': 'Save recording to session files',
+          'streaming.save_recording_hint':
+              'When enabled, the stream is saved as a video in this session after you stop.',
+          'streaming.recording_server_side':
+              'Recording is handled automatically by the backend and will be saved to session files after stopping the stream.',
+          'streaming.recording_unavailable':
+              'Recording is temporarily disabled on this device to prevent stream stop crashes.',
+          'streaming.uploading': 'Saving recording to session files...',
+          'streaming.upload_success': 'Recording saved to session files.',
+          'streaming.upload_failed':
+              'Stream stopped, but uploading the recording failed. Try again from Session files.',
           // Auth - login
           'auth.login.title': 'Welcome Back',
           'auth.login.subtitle': 'Sign in to continue',
@@ -181,6 +209,9 @@ class AppTranslations extends Translations {
           'end.time': 'وقت الانتهاء',
           'save': 'حفظ',
           'session.created': 'تم إنشاء الجلسة',
+          'sessions.select_times_required': 'يرجى اختيار وقت البدء ووقت الانتهاء.',
+          'sessions.end_must_be_after_start':
+              'يجب أن يكون وقت الانتهاء بعد وقت البدء.',
           'unknown.error': 'حدث خطأ غير معروف',
           'no.lab.selected': 'لم يتم اختيار مختبر',
           'no.sessions': 'لا توجد جلسات بعد',
@@ -212,6 +243,11 @@ class AppTranslations extends Translations {
           'files.title': 'الملفات',
           'files.empty': 'لا توجد ملفات',
           'files.error': 'فشل تحميل الملفات',
+          'files.open_failed': 'فشل فتح الملف',
+          'files.downloading': 'جاري التحميل...',
+          'files.no_app': 'لا يوجد تطبيق لفتح هذا الملف',
+          'files.view_image': 'عرض الصورة',
+          'files.load_image_failed': 'فشل تحميل الصورة',
           'files.download': 'فتح الملف',
           'files.lab': 'المختبر',
           'files.session': 'الجلسة',
@@ -238,8 +274,28 @@ class AppTranslations extends Translations {
           'streaming.stop': 'إيقاف البث',
           'streaming.description':
               'ابدأ بثاً مباشراً لهذه الجلسة ليتمكن الطلاب من المتابعة في الوقت الفعلي.',
-          'streaming.preview.live': 'ستظهر معاينة البث هنا.',
+          'streaming.preview.live': 'جاري تشغيل معاينة الكاميرا...',
           'streaming.preview.idle': 'لا يوجد بث حالياً.',
+          'streaming.connecting': 'جاري الاتصال بالبث...',
+          'streaming.live': 'مباشر',
+          'streaming.permission_denied':
+              'يلزم السماح بالكاميرا والميكروفون لبدء البث.',
+          'streaming.auth_required': 'يرجى تسجيل الدخول لبدء البث.',
+          'streaming.connection_failed':
+              'تعذر الاتصال بخادم البث. أعد تشغيل الخادم وتأكد أن الهاتف على نفس شبكة الواي فاي (الإعدادات → عنوان الخادم).',
+          'streaming.stop_failed':
+              'تعذر إيقاف البث على الخادم. ربما كان متوقفاً مسبقاً.',
+          'streaming.save_recording': 'حفظ التسجيل في ملفات الجلسة',
+          'streaming.save_recording_hint':
+              'عند التفعيل، يُحفظ البث كفيديو في هذه الجلسة بعد الإيقاف.',
+          'streaming.recording_server_side':
+              'يتم تسجيل البث تلقائياً من الخادم وسيُحفظ في ملفات الجلسة بعد إيقاف البث.',
+          'streaming.recording_unavailable':
+              'تم تعطيل التسجيل مؤقتًا على هذا الجهاز لمنع تعطل التطبيق عند إيقاف البث.',
+          'streaming.uploading': 'جاري حفظ التسجيل في ملفات الجلسة...',
+          'streaming.upload_success': 'تم حفظ التسجيل في ملفات الجلسة.',
+          'streaming.upload_failed':
+              'توقف البث، لكن فشل رفع التسجيل. أعد المحاولة من ملفات الجلسة.',
           // Auth - login
           'auth.login.title': 'مرحباً بعودتك',
           'auth.login.subtitle': 'سجّل الدخول للمتابعة',

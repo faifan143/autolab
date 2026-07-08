@@ -104,13 +104,20 @@ export class StreamingService {
 
   async stopStream(sessionId: string, userId: string): Promise<void> {
     const stream = this.activeStreams.get(sessionId);
-    if (!stream || stream.publisherId !== userId) {
+    if (!stream) {
+      await this.sessionModel.findByIdAndUpdate(sessionId, {
+        isStreaming: false,
+        streamEndedAt: new Date(),
+      });
+      return;
+    }
+
+    if (stream.publisherId !== userId) {
       throw new NotFoundException('Stream not found or unauthorized');
     }
 
     this.activeStreams.delete(sessionId);
 
-    // Update session state
     await this.sessionModel.findByIdAndUpdate(sessionId, {
       isStreaming: false,
       streamEndedAt: new Date(),

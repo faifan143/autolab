@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -10,6 +12,7 @@ class FilesProvider with ChangeNotifier {
   List<FileModel> _files = [];
   bool _isLoading = false;
   bool _isUploading = false;
+  bool _isDownloading = false;
   String? _error;
 
   String? _selectedLabId;
@@ -19,6 +22,7 @@ class FilesProvider with ChangeNotifier {
   List<FileModel> get files => _files;
   bool get isLoading => _isLoading;
   bool get isUploading => _isUploading;
+  bool get isDownloading => _isDownloading;
   String? get error => _error;
 
   String? get selectedLabId => _selectedLabId;
@@ -72,7 +76,11 @@ class FilesProvider with ChangeNotifier {
         description: description,
         onSendProgress: onSendProgress,
       );
-      _files = [uploaded, ..._files];
+      await loadFiles(
+        labId: labId ?? _selectedLabId,
+        sessionId: sessionId ?? _selectedSessionId,
+        ownerId: _ownerId,
+      );
       return uploaded;
     } catch (e) {
       _error = e.toString();
@@ -83,14 +91,38 @@ class FilesProvider with ChangeNotifier {
     }
   }
 
-  Future<String?> downloadFile(String fileId) async {
+  Future<String?> getFileDownloadUrl(String fileId) async {
     try {
-      final url = await _service.getFileDownloadUrl(fileId);
-      return url;
+      return await _service.getFileDownloadUrl(fileId);
     } catch (e) {
       _error = e.toString();
       notifyListeners();
       return null;
+    }
+  }
+
+  Future<File?> downloadFile(
+    FileModel file, {
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    _isDownloading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final downloaded = await _service.downloadToDevice(
+        file.id,
+        file.fileName,
+        mimeType: file.mimeType,
+        onReceiveProgress: onReceiveProgress,
+      );
+      return downloaded;
+    } catch (e) {
+      _error = e.toString();
+      return null;
+    } finally {
+      _isDownloading = false;
+      notifyListeners();
     }
   }
 }
