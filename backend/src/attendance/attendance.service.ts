@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -55,6 +56,8 @@ const ATTENDANCE_CHECKIN_TOKEN_TYPE = 'attendance-checkin';
 
 @Injectable()
 export class AttendanceService {
+  private readonly logger = new Logger(AttendanceService.name);
+
   constructor(
     @InjectModel(Attendance.name)
     private readonly attendanceModel: Model<AttendanceDocument>,
@@ -90,10 +93,21 @@ export class AttendanceService {
       throw new ForbiddenException('Only students can generate check-in QR codes');
     }
 
-    const session = await this.getSessionForCheckIn(sessionId);
-    const lab = await this.getLabForSession(session);
-    this.ensureStudentEnrolled(lab, studentId);
-    this.ensureWithinCheckInWindow(session);
+    let session: SessionDocument;
+    try {
+      session = await this.getSessionForCheckIn(sessionId);
+      const lab = await this.getLabForSession(session);
+      this.ensureStudentEnrolled(lab, studentId);
+      this.ensureWithinCheckInWindow(session);
+    } catch (error) {
+      if (error instanceof ForbiddenException) {
+        const message = error.message;
+        this.logger.warn(
+          `Student QR denied: sessionId=${sessionId} studentId=${studentId} role=${requesterRole} reason="${message}"`,
+        );
+      }
+      throw error;
+    }
 
     const expiresAt = new Date(
       Date.now() + STUDENT_CHECKIN_TOKEN_TTL_SECONDS * 1000,
@@ -394,6 +408,12 @@ export class AttendanceService {
   }
 
   private ensureWithinCheckInWindow(session: SessionDocument): void {
+    // While the teacher is live, keep attendance QR available even if the
+    // scheduled wall-clock window already ended (common in demos / late start).
+    if (session.isStreaming) {
+      return;
+    }
+
     const now = new Date();
     const windowStart = new Date(
       session.startTime.getTime() -
@@ -401,7 +421,9 @@ export class AttendanceService {
     );
 
     if (now < windowStart || now > session.endTime) {
-      throw new ForbiddenException('Session check-in is not open');
+      throw new ForbiddenException(
+        'Session check-in is not open. Attendance QR is available from 30 minutes before the session starts until it ends (or while the teacher is live).',
+      );
     }
   }
 

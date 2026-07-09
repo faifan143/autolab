@@ -387,10 +387,12 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
       throw new Error('Cannot consume producer');
     }
 
+    // Start paused so the client can attach the track before RTP begins.
+    // Resuming later + requestKeyFrame avoids a black first frame on mobile.
     const consumer = await transportData.transport.consume({
       producerId,
       rtpCapabilities,
-      paused: false,
+      paused: true,
     });
 
     return {
@@ -400,8 +402,23 @@ export class MediasoupService implements OnModuleInit, OnModuleDestroy {
         producerId: consumer.producerId,
         kind: consumer.kind,
         rtpParameters: consumer.rtpParameters,
+        producerPaused: consumer.producerPaused,
       },
     };
+  }
+
+  async resumeConsumerInstance(consumer: any): Promise<void> {
+    if (!consumer || consumer.closed) {
+      throw new Error('Consumer not found or closed');
+    }
+    await consumer.resume();
+    if (consumer.kind === 'video') {
+      try {
+        consumer.requestKeyFrame();
+      } catch {
+        // Older mediasoup builds may not expose requestKeyFrame.
+      }
+    }
   }
 
   async getProducers(sessionId: string): Promise<Producer[]> {

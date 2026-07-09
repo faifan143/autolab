@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -21,6 +22,8 @@ import { ServerRecordingService } from './server-recording.service';
 export class StreamingGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
+  private readonly logger = new Logger(StreamingGateway.name);
+
   @WebSocketServer()
   private readonly server: Server;
 
@@ -239,7 +242,6 @@ export class StreamingGateway
     },
   ) {
     const { sessionId, transportId, producerId, rtpCapabilities } = payload;
-    const userId = client.data.userId;
 
     try {
       const { consumer, params } = await this.mediasoupService.createConsumer(
@@ -252,16 +254,51 @@ export class StreamingGateway
       client.data.consumers = client.data.consumers || {};
       client.data.consumers[consumer.id] = consumer;
 
+      this.logger.log(
+        `Consumer created: sessionId=${sessionId} studentId=${client.data.userId} consumerId=${consumer.id} producerId=${consumer.producerId} kind=${consumer.kind} paused=true`,
+      );
+
       client.emit('consumed', {
         sessionId,
         consumerId: consumer.id,
         producerId: consumer.producerId,
         kind: consumer.kind,
         rtpParameters: consumer.rtpParameters,
+        // Client must call resume-consumer after attaching the local track.
+        paused: true,
       });
     } catch (error) {
       client.emit('stream-error', {
         message: error instanceof Error ? error.message : 'Failed to consume',
+      });
+    }
+  }
+
+  @SubscribeMessage('resume-consumer')
+  async handleResumeConsumer(
+    client: Socket,
+    payload: { consumerId: string },
+  ) {
+    const { consumerId } = payload;
+
+    try {
+      const consumer = client.data.consumers?.[consumerId];
+      if (!consumer) {
+        client.emit('stream-error', {
+          message: `Consumer not found: ${consumerId}`,
+        });
+        return;
+      }
+
+      await this.mediasoupService.resumeConsumerInstance(consumer);
+      this.logger.log(
+        `Consumer resumed: sessionId=${client.data.sessionId} studentId=${client.data.userId} consumerId=${consumerId}`,
+      );
+      client.emit('consumer-resumed', { consumerId });
+    } catch (error) {
+      client.emit('stream-error', {
+        message:
+          error instanceof Error ? error.message : 'Failed to resume consumer',
       });
     }
   }
