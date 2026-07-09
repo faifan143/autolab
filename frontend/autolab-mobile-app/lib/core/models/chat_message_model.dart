@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'file_model.dart';
 import 'user_model.dart';
 
 part 'chat_message_model.g.dart';
@@ -13,6 +14,8 @@ class ChatMessageModel {
   final List<String> recipientIds;
   final List<UserModel>? recipients;
   final String content;
+  final List<String> fileIds;
+  final List<FileModel> files;
   final DateTime createdAt;
 
   ChatMessageModel({
@@ -24,6 +27,8 @@ class ChatMessageModel {
     required this.recipientIds,
     this.recipients,
     required this.content,
+    required this.fileIds,
+    required this.files,
     required this.createdAt,
   });
 
@@ -39,6 +44,8 @@ class ChatMessageModel {
 
     final createdAtRaw = (json['createdAt'] ?? '').toString();
     final recipientIdsRaw = json['recipientIds'];
+    final fileIdsRaw = json['fileIds'];
+    final filesRaw = json['files'];
 
     return ChatMessageModel(
       id: readId(json['_id'] ?? json['id']),
@@ -58,6 +65,27 @@ class ChatMessageModel {
               .toList()
           : null,
       content: (json['content'] ?? '').toString(),
+      fileIds: fileIdsRaw is List
+          ? fileIdsRaw.map((e) => readId(e)).where((e) => e.isNotEmpty).toList()
+          : const [],
+      files: filesRaw is List
+          ? filesRaw
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (e) => FileModel.fromJson({
+                  ...e,
+                  'id': (e['id'] ?? e['_id'] ?? '').toString(),
+                  'fileName': (e['fileName'] ?? 'file').toString(),
+                  'mimeType':
+                      (e['mimeType'] ?? 'application/octet-stream').toString(),
+                  'size': (e['size'] as num?)?.toInt() ?? 0,
+                  'ownerId': (e['ownerId'] ?? '').toString(),
+                  'storageKey':
+                      (e['storageKey'] ?? e['id'] ?? e['_id'] ?? '').toString(),
+                }),
+              )
+              .toList()
+          : const [],
       createdAt:
           createdAtRaw.isNotEmpty ? DateTime.parse(createdAtRaw) : DateTime.now(),
     );

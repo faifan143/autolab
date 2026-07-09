@@ -80,7 +80,15 @@ class ChatProvider with ChangeNotifier {
   }
 
   Future<void> sendMessage(String text) async {
-    if (_currentChannel == null || text.trim().isEmpty) return;
+    await sendMessageWithAttachments(text, attachmentFileIds: const []);
+  }
+
+  Future<void> sendMessageWithAttachments(
+    String text, {
+    required List<String> attachmentFileIds,
+  }) async {
+    if (_currentChannel == null) return;
+    if (text.trim().isEmpty && attachmentFileIds.isEmpty) return;
 
     _isSending = true;
     _error = null;
@@ -91,6 +99,7 @@ class ChatProvider with ChangeNotifier {
         text,
         channel: _currentChannel!,
         labId: _currentLabId,
+        fileIds: attachmentFileIds,
       );
       if (!_messageIds.contains(sent.id)) {
         final enriched = await _enrichMessage(sent);
@@ -150,6 +159,8 @@ class ChatProvider with ChangeNotifier {
       recipientIds: message.recipientIds,
       recipients: message.recipients,
       content: message.content,
+      fileIds: message.fileIds,
+      files: message.files,
       createdAt: message.createdAt,
     );
   }

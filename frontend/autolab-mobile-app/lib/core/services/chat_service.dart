@@ -54,17 +54,20 @@ class ChatService {
     String text, {
     required String channel,
     String? labId,
+    List<String> fileIds = const [],
   }) async {
-    if (text.trim().isEmpty) {
-      throw ArgumentError('Message content cannot be empty');
+    final trimmed = text.trim();
+    if (trimmed.isEmpty && fileIds.isEmpty) {
+      throw ArgumentError('Message must include text or attachment');
     }
 
     final Response response = await _api.post(
       ApiConstants.chatMessages,
       data: {
         'channel': channel,
-        'content': text.trim(),
+        if (trimmed.isNotEmpty) 'content': trimmed,
         if (labId != null) 'labId': labId,
+        if (fileIds.isNotEmpty) 'fileIds': fileIds,
       },
     );
 

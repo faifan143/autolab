@@ -22,6 +22,10 @@ ChatMessageModel _$ChatMessageModelFromJson(Map<String, dynamic> json) =>
           ?.map((e) => UserModel.fromJson(e as Map<String, dynamic>))
           .toList(),
       content: json['content'] as String,
+      fileIds: (json['fileIds'] as List<dynamic>).map((e) => e as String).toList(),
+      files: (json['files'] as List<dynamic>)
+          .map((e) => FileModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
 
@@ -35,5 +39,7 @@ Map<String, dynamic> _$ChatMessageModelToJson(ChatMessageModel instance) =>
       'recipientIds': instance.recipientIds,
       'recipients': instance.recipients,
       'content': instance.content,
+      'fileIds': instance.fileIds,
+      'files': instance.files,
       'createdAt': instance.createdAt.toIso8601String(),
     };
