@@ -13,10 +13,11 @@ export class SendMessageDto {
   @MaxLength(200)
   channel: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(4000)
-  content: string;
+  content?: string;
 
   @IsOptional()
   @IsMongoId()
@@ -26,6 +27,11 @@ export class SendMessageDto {
   @IsArray()
   @IsMongoId({ each: true })
   recipientIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  fileIds?: string[];
 }
 
 

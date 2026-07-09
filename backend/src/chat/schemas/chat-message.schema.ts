@@ -19,8 +19,11 @@ export class ChatMessage {
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
   recipientIds: Types.ObjectId[];
 
-  @Prop({ required: true, trim: true })
-  content: string;
+  @Prop({ type: [Types.ObjectId], ref: 'StoredFile', default: [] })
+  fileIds: Types.ObjectId[];
+
+  @Prop({ trim: true })
+  content?: string;
 }
 
 export const ChatMessageSchema = SchemaFactory.createForClass(ChatMessage);
