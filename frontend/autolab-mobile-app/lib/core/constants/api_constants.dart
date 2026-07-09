@@ -32,6 +32,7 @@ class ApiConstants {
   static const String grades = 'grades';
   static String labGrades(String labId) => 'grades/labs/$labId';
   static String studentGrades(String studentId) => 'grades/students/$studentId';
+  static const String gradeCategories = 'grades/categories';
   
   static const String files = 'files';
   static String fileById(String id) => 'files/$id';

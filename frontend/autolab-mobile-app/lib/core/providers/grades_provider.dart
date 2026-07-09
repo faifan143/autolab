@@ -6,16 +6,26 @@ import '../services/grades_service.dart';
 import '../services/labs_service.dart';
 
 class GradesProvider with ChangeNotifier {
+  static const List<String> defaultCategories = [
+    'exam',
+    'quiz',
+    'presentation',
+    'project',
+  ];
+
   final GradesService _gradesService = GradesService();
   final LabsService _labsService = LabsService();
 
   bool loadingLabs = false;
   bool loadingGrades = false;
+  bool loadingCategories = false;
   bool creatingGrade = false;
   String? error;
+  String? categoriesError;
 
   List<LabModel> labs = [];
   List<GradeModel> grades = [];
+  List<String> categories = [];
   LabModel? selectedLab;
 
   Future<void> loadLabs() async {
@@ -56,6 +66,15 @@ class GradesProvider with ChangeNotifier {
       loadingGrades = false;
       notifyListeners();
     }
+  }
+
+  Future<void> loadCategories() async {
+    loadingCategories = true;
+    categoriesError = null;
+    notifyListeners();
+    categories = List<String>.from(defaultCategories);
+    loadingCategories = false;
+    notifyListeners();
   }
 
   Future<bool> createGrade({

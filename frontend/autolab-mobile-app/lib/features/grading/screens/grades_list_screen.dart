@@ -31,6 +31,7 @@ class _GradesContent extends StatefulWidget {
 
 class _GradesContentState extends State<_GradesContent> {
   LabModel? selectedLab;
+  Map<String, String> _studentNamesById = const {};
 
   @override
   void initState() {
@@ -42,11 +43,15 @@ class _GradesContentState extends State<_GradesContent> {
         await labsProvider.loadLabs();
       }
       gradesProvider.labs = labsProvider.labs;
+      if (gradesProvider.categories.isEmpty && !gradesProvider.loadingCategories) {
+        await gradesProvider.loadCategories();
+      }
       if (widget.initialLabId != null) {
         selectedLab = labsProvider.labs
             .firstWhereOrNull((lab) => lab.id == widget.initialLabId);
         if (selectedLab != null) {
           gradesProvider.selectedLab = selectedLab;
+          await _loadStudentNamesForLab(selectedLab!);
           await gradesProvider.loadGrades(selectedLab!.id);
         }
       }
@@ -94,6 +99,7 @@ class _GradesContentState extends State<_GradesContent> {
               setState(() => selectedLab = lab);
               gradesProvider.selectedLab = lab;
               if (lab != null) {
+                _loadStudentNamesForLab(lab);
                 gradesProvider.loadGrades(lab.id);
               }
             },
@@ -110,25 +116,61 @@ class _GradesContentState extends State<_GradesContent> {
           else if (gradesProvider.grades.isEmpty)
             Text('no.grades.yet'.tr)
           else
-            ...gradesProvider.grades.map((grade) => _GradeTile(grade: grade)),
+            ...gradesProvider.grades.map(
+              (grade) => _GradeTile(
+                grade: grade,
+                fallbackStudentName: _studentNamesById[grade.studentId],
+              ),
+            ),
         ],
       ),
     );
   }
 
-  void _openCreateGradeSheet(BuildContext context) {
+  Future<void> _loadStudentNamesForLab(LabModel lab) async {
+    final labsProvider = context.read<LabsProvider>();
+    final students = await labsProvider.resolveLabStudents(lab.id);
+    if (!mounted) return;
+    setState(() {
+      _studentNamesById = {
+        for (final s in students)
+          if (s.id.isNotEmpty) s.id: s.name,
+      };
+    });
+  }
+
+  Future<void> _openCreateGradeSheet(BuildContext context) async {
     final provider = context.read<GradesProvider>();
-    final students = provider.selectedLab?.students ?? [];
+    final selected = provider.selectedLab;
+    if (selected == null) return;
+
+    final labsProvider = context.read<LabsProvider>();
+    final students = await labsProvider.resolveLabStudents(selected.id);
     if (students.isEmpty) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('no.students.in.lab'.tr)),
       );
       return;
     }
 
+    if (provider.categories.isEmpty && !provider.loadingCategories) {
+      await provider.loadCategories();
+    }
+    if (!context.mounted) return;
+    if (provider.loadingCategories) return;
+    if (provider.categories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(provider.categoriesError ?? 'Failed to load categories'),
+        ),
+      );
+      return;
+    }
+
     final formKey = GlobalKey<FormState>();
     String? studentId = students.first.id;
-    final categoryController = TextEditingController();
+    String? category = provider.categories.first;
     final scoreController = TextEditingController();
     final maxController = TextEditingController();
     final commentController = TextEditingController();
@@ -171,8 +213,17 @@ class _GradesContentState extends State<_GradesContent> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: categoryController,
+                DropdownButtonFormField<String>(
+                  initialValue: category,
+                  items: provider.categories
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item,
+                          child: Text(item),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => category = value,
                   decoration: InputDecoration(
                     labelText: 'category'.tr,
                     border: OutlineInputBorder(
@@ -235,7 +286,7 @@ class _GradesContentState extends State<_GradesContent> {
                             if (!formKey.currentState!.validate()) return;
                             final ok = await provider.createGrade(
                               studentId: studentId ?? students.first.id,
-                              category: categoryController.text.trim(),
+                              category: category ?? provider.categories.first,
                               score: double.parse(scoreController.text),
                               maxScore: maxController.text.isNotEmpty
                                   ? double.tryParse(maxController.text)
@@ -274,11 +325,13 @@ class _GradesContentState extends State<_GradesContent> {
 
 class _GradeTile extends StatelessWidget {
   final GradeModel grade;
-  const _GradeTile({required this.grade});
+  final String? fallbackStudentName;
+  const _GradeTile({required this.grade, this.fallbackStudentName});
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final studentName = grade.student?.name ?? fallbackStudentName ?? '—';
     final scoreText = grade.maxScore != null
         ? '${grade.score.toStringAsFixed(1)} / ${grade.maxScore!.toStringAsFixed(1)}'
         : grade.score.toStringAsFixed(1);
@@ -301,7 +354,9 @@ class _GradeTile extends StatelessWidget {
               CircleAvatar(
                 backgroundColor: scheme.primary.withOpacity(0.15),
                 child: Text(
-                  grade.student?.name.substring(0, 1).toUpperCase() ?? '?',
+                  studentName.isNotEmpty
+                      ? studentName.substring(0, 1).toUpperCase()
+                      : '?',
                   style: TextStyle(
                     color: scheme.primary,
                     fontWeight: FontWeight.bold,
@@ -314,7 +369,7 @@ class _GradeTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      grade.student?.name ?? '—',
+                      studentName,
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
