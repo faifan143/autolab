@@ -80,7 +80,11 @@ class _AttendanceContentState extends State<_AttendanceContent> {
             onChanged: (sessionId) {
               setState(() => selectedSession = sessionId);
               if (sessionId != null) {
-                attendance.loadAttendance(sessionId);
+                attendance.loadAttendance(
+                  sessionId,
+                  totalStudents: selectedLab?.studentIds.length,
+                  knownStudents: selectedLab?.students,
+                );
               }
             },
           ),
@@ -101,9 +105,16 @@ class _AttendanceContentState extends State<_AttendanceContent> {
               },
             ),
             const SizedBox(height: 16),
+            if (attendance.loadingAttendance)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else ...[
             _AttendanceSummary(attendance: attendance.attendance),
             const SizedBox(height: 16),
             _AttendanceList(attendance: attendance.attendance),
+            ],
           ] else
             Text(
               'select.session.prompt'.tr,
@@ -245,6 +256,7 @@ class _AttendanceSummary extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: color.withOpacity(0.12),
+            color: color.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -314,9 +326,9 @@ class _AttendanceList extends StatelessWidget {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: color.withOpacity(0.15),
+                  backgroundColor: color.withValues(alpha: 0.15),
                   child: Text(
-                    record.student?.name.substring(0, 1).toUpperCase() ?? '?',
+                    _initialFor(record.student?.name),
                     style: TextStyle(color: color),
                   ),
                 ),
@@ -348,6 +360,7 @@ class _AttendanceList extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.15),
+                    color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -361,5 +374,10 @@ class _AttendanceList extends StatelessWidget {
         }),
       ],
     );
+  }
+
+  String _initialFor(String? name) {
+    if (name == null || name.trim().isEmpty) return '?';
+    return name.trim().characters.first.toUpperCase();
   }
 }

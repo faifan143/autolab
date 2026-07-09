@@ -2,12 +2,15 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/session_model.dart';
 import '../models/attendance_model.dart';
+import '../models/user_model.dart';
 import '../services/sessions_service.dart';
 import '../services/attendance_service.dart';
+import '../services/users_service.dart';
 
 class AttendanceProvider with ChangeNotifier {
   final SessionsService _sessionsService = SessionsService();
   final AttendanceService _attendanceService = AttendanceService();
+  final UsersService _usersService = UsersService();
 
   bool loadingSessions = false;
   bool loadingAttendance = false;
@@ -40,7 +43,11 @@ class AttendanceProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadAttendance(String sessionId) async {
+  Future<void> loadAttendance(
+    String sessionId, {
+    int? totalStudents,
+    List<UserModel>? knownStudents,
+  }) async {
     currentSessionId = sessionId;
     loadingAttendance = true;
     error = null;
@@ -54,18 +61,58 @@ class AttendanceProvider with ChangeNotifier {
           .map((e) => AttendanceModel.fromJson(e as Map<String, dynamic>))
           .toList();
 
+      final Map<String, UserModel> knownById = {
+        for (final user in knownStudents ?? const <UserModel>[]) user.id: user,
+      };
+      final unresolvedIds = records
+          .where((record) =>
+              record.student == null && !knownById.containsKey(record.studentId))
+          .map((record) => record.studentId)
+          .toSet();
+      if (unresolvedIds.isNotEmpty) {
+        final fetched = await Future.wait(
+          unresolvedIds.map((id) async {
+            try {
+              return await _usersService.getUserById(id);
+            } catch (_) {
+              return null;
+            }
+          }),
+        );
+        for (final user in fetched) {
+          if (user != null) knownById[user.id] = user;
+        }
+      }
+
+      final enrichedRecords = records
+          .map((record) => AttendanceModel(
+                id: record.id,
+                studentId: record.studentId,
+                student: record.student ?? knownById[record.studentId],
+                sessionId: record.sessionId,
+                session: record.session,
+                status: record.status,
+                timestamp: record.timestamp,
+                scannedAt: record.scannedAt,
+              ))
+          .toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
       final present =
-          records.where((record) => record.status == 'present').length;
-      final late = records.where((record) => record.status == 'late').length;
+          enrichedRecords.where((record) => record.status == 'present').length;
+      final late =
+          enrichedRecords.where((record) => record.status == 'late').length;
+      final total = totalStudents ?? enrichedRecords.length;
+      final absent = (total - present - late).clamp(0, total);
 
       attendance = SessionAttendanceResponse(
         sessionId: sessionId,
-        attendance: records,
+        attendance: enrichedRecords,
         summary: AttendanceSummary(
           present: present,
           late: late,
-          absent: 0,
-          total: records.length,
+          absent: absent,
+          total: total,
         ),
       );
     } catch (e) {
