@@ -134,7 +134,14 @@ class AttendanceProvider with ChangeNotifier {
         currentSessionId!,
         studentToken,
       );
-      await loadAttendance(currentSessionId!);
+      await loadAttendance(
+        currentSessionId!,
+        totalStudents: attendance?.summary.total,
+        knownStudents: attendance?.attendance
+            .map((record) => record.student)
+            .whereType<UserModel>()
+            .toList(),
+      );
       scanningStudent = false;
       notifyListeners();
       return true;

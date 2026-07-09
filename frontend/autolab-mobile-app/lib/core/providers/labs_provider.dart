@@ -15,11 +15,13 @@ class LabsProvider with ChangeNotifier {
   List<LabModel> _labs = [];
   bool _loading = false;
   bool _mutatingStudents = false;
+  bool _requestingArchive = false;
   String? _error;
 
   List<LabModel> get labs => _labs;
   bool get isLoading => _loading;
   bool get isMutatingStudents => _mutatingStudents;
+  bool get isRequestingArchive => _requestingArchive;
   String? get error => _error;
 
   LabModel? getLabById(String labId) {
@@ -162,6 +164,34 @@ class LabsProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> requestArchiveLab(String labId, {String? reason}) async {
+    _requestingArchive = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _service.requestArchive(labId: labId, reason: reason);
+      final index = _labs.indexWhere((lab) => lab.id == labId);
+      if (index != -1) {
+        final current = _labs[index];
+        _labs = List<LabModel>.from(_labs);
+        _labs[index] = current.copyWith(
+          archiveRequested: true,
+          archiveRequestedAt: DateTime.now(),
+          archiveRequestReason: reason?.trim().isEmpty ?? true
+              ? null
+              : reason!.trim(),
+        );
+      }
+      return true;
+    } catch (e) {
+      _error = _friendlyError(e);
+      return false;
+    } finally {
+      _requestingArchive = false;
+      notifyListeners();
+    }
+  }
+
   String _friendlyError(Object e) {
     if (e is DioException) {
       final data = e.response?.data;
@@ -180,6 +210,7 @@ class LabsProvider with ChangeNotifier {
     _error = null;
     _loading = false;
     _mutatingStudents = false;
+    _requestingArchive = false;
     notifyListeners();
   }
 }

@@ -19,6 +19,18 @@ class LabsService {
       data: {'studentIds': studentIds},
     );
   }
+
+  Future<Response> requestArchive({
+    required String labId,
+    String? reason,
+  }) async {
+    return _api.post(
+      ApiConstants.labArchiveRequest(labId),
+      data: {
+        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+      },
+    );
+  }
 }
 
 

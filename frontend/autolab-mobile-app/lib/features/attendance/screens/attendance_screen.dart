@@ -36,7 +36,8 @@ class _AttendanceContentState extends State<_AttendanceContent> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final labsProvider = context.read<LabsProvider>();
       if (labsProvider.labs.isEmpty) {
         labsProvider.loadLabs();
@@ -255,7 +256,6 @@ class _AttendanceSummary extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.12),
             color: color.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(16),
           ),
@@ -359,7 +359,6 @@ class _AttendanceList extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
                     color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -378,6 +377,7 @@ class _AttendanceList extends StatelessWidget {
 
   String _initialFor(String? name) {
     if (name == null || name.trim().isEmpty) return '?';
-    return name.trim().characters.first.toUpperCase();
+    final trimmed = name.trim();
+    return trimmed.substring(0, 1).toUpperCase();
   }
 }

@@ -50,6 +50,11 @@ class AppTranslations extends Translations {
           'recorded': 'Recorded',
           'generate.qr': 'Generate QR',
           'scan.student.qr': 'Scan Student QR',
+          'scanner.hint': 'Point camera at student QR code',
+          'scanner.last': 'Last scan',
+          'scanner.torch.on': 'Turn on flash',
+          'scanner.torch.off': 'Turn off flash',
+          'scanner.switch.camera': 'Switch camera',
           'attendance.scanned': 'Attendance recorded',
           'start.qr': 'Start QR',
           'end.qr': 'End QR',
@@ -178,6 +183,15 @@ class AppTranslations extends Translations {
           // Labs (detail placeholders)
           'labs.detail.title': 'Lab Details',
           'labs.detail.placeholder': 'Lab detail for ID: @id',
+          'labs.archive.request': 'Request archive',
+          'labs.archive.request.hint':
+              'Send an archive request to the admin for this lab.',
+          'labs.archive.request.reason.hint':
+              'Optional reason for the archive request',
+          'labs.archive.request.submit': 'Send request',
+          'labs.archive.request.sent': 'Archive request sent',
+          'labs.archive.request.pending': 'Archive request is pending approval',
+          'labs.archive.already': 'This lab is already archived',
           // Settings - logout dialog
           'settings.logout.title': 'Confirm logout',
           'settings.logout.message':
@@ -236,6 +250,11 @@ class AppTranslations extends Translations {
           'recorded': 'مسجلة',
           'generate.qr': 'إنشاء رمز QR',
           'scan.student.qr': 'مسح رمز الطالب',
+          'scanner.hint': 'وجّه الكاميرا نحو رمز QR الخاص بالطالب',
+          'scanner.last': 'آخر مسح',
+          'scanner.torch.on': 'تشغيل الفلاش',
+          'scanner.torch.off': 'إيقاف الفلاش',
+          'scanner.switch.camera': 'تبديل الكاميرا',
           'attendance.scanned': 'تم تسجيل الحضور',
           'start.qr': 'رمز البداية',
           'end.qr': 'رمز النهاية',
@@ -366,6 +385,14 @@ class AppTranslations extends Translations {
           // Labs (detail placeholders)
           'labs.detail.title': 'تفاصيل المختبر',
           'labs.detail.placeholder': 'تفاصيل المختبر برقم: @id',
+          'labs.archive.request': 'طلب أرشفة',
+          'labs.archive.request.hint':
+              'أرسل طلب أرشفة لهذا المختبر إلى المشرف.',
+          'labs.archive.request.reason.hint': 'سبب الطلب (اختياري)',
+          'labs.archive.request.submit': 'إرسال الطلب',
+          'labs.archive.request.sent': 'تم إرسال طلب الأرشفة',
+          'labs.archive.request.pending': 'طلب الأرشفة بانتظار الموافقة',
+          'labs.archive.already': 'هذا المختبر مؤرشف بالفعل',
           // Settings - logout dialog
           'settings.logout.title': 'تأكيد تسجيل الخروج',
           'settings.logout.message':

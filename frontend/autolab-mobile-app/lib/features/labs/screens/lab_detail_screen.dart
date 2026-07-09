@@ -49,7 +49,7 @@ class LabDetailScreen extends StatelessWidget {
                       width: 52,
                       height: 52,
                       decoration: BoxDecoration(
-                        color: color.primary.withOpacity(0.15),
+                        color: color.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Icon(Icons.science_outlined, color: color.primary),
@@ -138,10 +138,123 @@ class LabDetailScreen extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              if (lab?.isArchived == true)
+                _StatusBanner(
+                  icon: Icons.archive_outlined,
+                  text: 'labs.archive.already'.tr,
+                )
+              else if (lab?.archiveRequested == true)
+                _StatusBanner(
+                  icon: Icons.hourglass_top_outlined,
+                  text: 'labs.archive.request.pending'.tr,
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: labsProvider.isRequestingArchive
+                        ? null
+                        : () => _openArchiveRequestSheet(context, labId),
+                    icon: labsProvider.isRequestingArchive
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.archive_outlined),
+                    label: Text('labs.archive.request'.tr),
+                  ),
+                ),
             ],
           );
         },
       ),
+    );
+  }
+
+  void _openArchiveRequestSheet(BuildContext context, String labId) {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 8,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'labs.archive.request'.tr,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'labs.archive.request.hint'.tr,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: reasonController,
+                  minLines: 3,
+                  maxLines: 5,
+                  maxLength: 1000,
+                  decoration: InputDecoration(
+                    hintText: 'labs.archive.request.reason.hint'.tr,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () async {
+                      if (!formKey.currentState!.validate()) return;
+                      final provider = context.read<LabsProvider>();
+                      final ok = await provider.requestArchiveLab(
+                        labId,
+                        reason: reasonController.text,
+                      );
+                      if (!context.mounted) return;
+                      if (ok) {
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('labs.archive.request.sent'.tr),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content:
+                                Text(provider.error ?? 'unknown.error'.tr),
+                          ),
+                        );
+                      }
+                    },
+                    child: Text('labs.archive.request.submit'.tr),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -181,7 +294,7 @@ class _LabActionCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: color.primary.withOpacity(0.15),
+                  color: color.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color.primary, size: 22),
@@ -205,6 +318,39 @@ class _LabActionCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StatusBanner extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _StatusBanner({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color.onSecondaryContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: color.onSecondaryContainer,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }
